@@ -1,0 +1,115 @@
+# Roadmap — พาทำทีละ step (map กับหัวข้อ bootcamp)
+
+โปรเจค: **Reddit ELT (r/dataengineering)** บน Airflow + dbt + ClickHouse + MinIO + Looker Studio
+
+แต่ละ phase ผูกกับหัวข้อที่เรียนใน internal bootcamp โดยตรง ทำไล่จากบนลงล่างได้เลย
+เครื่องหมาย ✅ = มี scaffold ให้แล้วในrepo, 🔨 = ต้องลงมือ/กรอกค่าเอง, 🚀 = ของแถม (bonus)
+
+---
+
+## Phase 0 — Thinking with Data (Advanced)
+**เป้าหมาย:** ตั้งคำถามก่อนเขียนโค้ด เพื่อกำหนดว่า mart/dashboard ต้องตอบอะไร
+
+🔨 เขียนคำถามเชิงวิเคราะห์ 5–7 ข้อ เช่น
+- ชุมชน r/dataengineering คึกคักแค่ไหนในแต่ละวัน? (post/comment ต่อวัน)
+- โพสต์แบบไหนได้ engagement สูง (text vs link, flair ไหน)?
+- เวลาไหนของวันคนโพสต์/มีปฏิสัมพันธ์มากสุด?
+- ใครคือ contributor ตัวท็อป?
+
+> คำถามพวกนี้ = spec ของ marts (`agg_daily_subreddit`, `fct_posts`, `dim_authors`)
+> ทำ phase นี้ก่อน จะได้ไม่ดึง field ที่ไม่ได้ใช้
+
+---
+
+## Phase 1 — Data Engineering 101 + Coding Essentials + Data Architecture Design
+**เป้าหมาย:** วางสถาปัตยกรรม + โครง repo
+
+✅ โครง repo, medallion architecture (bronze/silver/gold) — ดู `docs/architecture.md`
+✅ เลือก ELT (ไม่ใช่ ETL) เพราะ transform หนักๆ ให้ ClickHouse/dbt ทำในคลัง
+🔨 ทำความเข้าใจ diagram + วาด draw.io ของตัวเองใส่ `images/` ไว้โชว์ใน README
+
+**คำสั่งเริ่ม:**
+```bash
+cp .env.example .env      # แล้วกรอก Reddit credentials + Fernet key
+make build && make up
+```
+
+---
+
+## Phase 2 — Data Pipelines with Airflow
+**เป้าหมาย:** orchestrate E + L ด้วย DAG
+
+✅ `airflow/dags/reddit_elt_dag.py` — DAG 5 task พร้อม retry + XCom
+✅ `scripts/reddit_extract.py` — PRAW ดึง hot+new+top แล้ว land NDJSON ลง MinIO
+✅ `scripts/clickhouse_load.py` — ClickHouse `s3()` อ่านจาก MinIO → `raw_posts`
+🔨 สมัคร Reddit app (type = script) เอา client_id/secret มาใส่ `.env`
+🔨 เปิด DAG ใน UI (localhost:8080) กด trigger / `make trigger`
+🔨 ตรวจว่า task เขียว + เช็คไฟล์ใน MinIO console (localhost:9001)
+
+**สิ่งที่ควรอธิบายได้:** ทำไมแยก extract กับ load, XCom ส่ง key อย่างไร, retry/idempotency
+
+---
+
+## Phase 3 — Analytics Engineering with dbt
+**เป้าหมาย:** transform เป็น staging → marts
+
+✅ `dbt/models/staging/stg_reddit__posts.sql` — clean + de-dup เอา snapshot ล่าสุด
+✅ marts: `fct_posts`, `dim_authors`, `agg_daily_subreddit`
+✅ sources + `ref()` lineage
+🔨 `make deps` (ติดตั้ง dbt_utils) แล้ว `make dbt-run`
+🔨 `dbt docs generate` เพื่อดู lineage graph (แคปใส่ README ได้)
+
+**สิ่งที่ควรอธิบายได้:** staging vs marts, materialization (view vs table), de-dup ด้วย window function
+
+---
+
+## Phase 4 — Data Governance
+**เป้าหมาย:** คุณภาพ + ความน่าเชื่อถือของข้อมูล
+
+✅ dbt tests: `not_null`, `unique`, `dbt_utils.accepted_range` (score, upvote_ratio 0–1 ฯลฯ)
+✅ `source freshness` (เตือนถ้าข้อมูลเก่าเกิน 26 ชม.)
+✅ naming convention: `stg_`, `fct_`, `dim_`, `agg_` + คำอธิบายทุก model/column
+🔨 `make dbt-test` ต้องผ่านทั้งหมด
+🔨 จด data dictionary สั้นๆ + ประเด็น PII (author = username สาธารณะ, ไม่เก็บ PII เพิ่ม)
+
+**สิ่งที่ควรอธิบายได้:** test แต่ละแบบกันปัญหาอะไร, freshness/observability, lineage = governance
+
+---
+
+## Phase 5 — Dashboard Design + Data Product
+**เป้าหมาย:** dashboard ที่บังคับใช้ (Looker Studio)
+
+✅ `scripts/export_to_sheets.py` — push marts → Google Sheet (สะพานให้ Looker อ่าน local ClickHouse)
+✅ คู่มือ + layout dashboard 3 หน้า — ดู `docs/looker_studio_setup.md`
+🔨 สร้าง service account + Google Sheet, ตั้ง `ENABLE_SHEETS_EXPORT=true`
+🔨 ต่อ Looker Studio → ทำ scorecard + time series + top posts + heatmap ชั่วโมง
+🔨 แคปหน้า dashboard ใส่ `images/` แล้วอ้างใน README
+
+**สิ่งที่ควรอธิบายได้:** เลือก chart ตามคำถาม Phase 0, ทำไมต้องมี serving layer
+
+---
+
+## Phase 6 — ตอบ 3 คำถาม + ส่งงาน
+✅ README มีคำตอบ 3 ข้อครบแล้ว (What learned / How improve / Do differently) — ปรับให้เป็นเสียงตัวเอง
+🔨 `git init` → push ขึ้น GitHub repo ตัวเอง
+🔨 ใส่ลิงก์ dashboard (แชร์แบบ view) ใน README
+
+---
+
+## 🚀 Bonus (หัวข้อ bootcamp ที่เหลือ — ทำเพิ่มเพื่อคะแนน/พอร์ต)
+
+- **Stream Processing with Kafka** 🚀 — เพิ่ม producer อ่าน `subreddit.stream.submissions()`
+  ส่งเข้า Kafka topic แล้ว consumer เขียนลง ClickHouse (มี Kafka engine table ได้)
+- **Machine Learning** 🚀 — โมเดลทำนาย `score` จาก title/flair/created_hour หรือ topic clustering
+- **Agentic AI + RAG** 🚀 — ทำ embedding ของ `selftext` + RAG ให้ถาม-ตอบเนื้อหาในซับได้
+
+---
+
+## ลำดับลงมือที่แนะนำ (ครั้งแรก)
+1. `cp .env.example .env` → กรอก Reddit + Fernet key
+2. `make build && make up && make deps`
+3. เปิด DAG `reddit_elt` → `make trigger` → ดูให้เขียวครบ
+4. `make dbt-run && make dbt-test`
+5. เช็คตาราง marts ใน ClickHouse
+6. ตั้งค่า Google Sheet + Looker Studio ทำ dashboard
+7. เขียน/ปรับคำตอบ 3 ข้อใน README → push GitHub
