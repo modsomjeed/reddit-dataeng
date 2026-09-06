@@ -1,0 +1,20 @@
+name: "reddit_analytics"
+version: "1.0.0"
+config-version: 2
+
+profile: "reddit_clickhouse"
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  reddit_analytics:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

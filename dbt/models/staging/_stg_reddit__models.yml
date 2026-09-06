@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_reddit__posts
+    description: >
+      Cleaned, de-duplicated Reddit posts (latest snapshot per post_id).
+      This is the trusted silver model every mart builds on.
+    columns:
+      - name: post_id
+        description: "Unique Reddit submission id (grain of this model)."
+        tests:
+          - not_null
+          - unique
+      - name: subreddit
+        tests: [not_null]
+      - name: score
+        description: "Net upvotes (latest snapshot)."
+        tests:
+          - not_null
+      - name: upvote_ratio
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: num_comments
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: engagement_score
+        description: "score + num_comments ― simple engagement proxy."
