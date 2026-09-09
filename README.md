@@ -94,6 +94,10 @@ extract_reddit → load_clickhouse_raw → dbt_run → dbt_test → export_to_sh
 
 ## Data models
 
+Every mart exists to answer a question written down before any of them was built —
+see [`docs/questions.md`](docs/questions.md) for the question-to-mart-to-chart map
+and the known limits of the dataset.
+
 - `stg_reddit__posts` — cleaned, de-duplicated to latest snapshot per post.
 - `fct_posts` — one row per post (dashboard detail).
 - `dim_authors` — per-author aggregates (top contributors).
@@ -170,7 +174,7 @@ reddit-dataeng-pipeline/
 │       ├── staging/            # stg_reddit__posts + tests
 │       └── marts/              # fct_posts · dim_authors · agg_daily_subreddit
 ├── clickhouse/init/01_init.sql # raw_posts DDL
-└── docs/                       # architecture · looker_studio_setup · roadmap
+└── docs/                       # questions · architecture · looker_studio_setup · roadmap
 ```
 
 ## Data source & credits
