@@ -44,9 +44,11 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### 3. Run
 ```bash
 make build      # build Airflow image (dbt baked in)
-make up         # start Airflow + MinIO + ClickHouse + Postgres
-make deps       # install dbt packages (dbt_utils)
+make init       # start the stack, wait for Airflow, install dbt packages
 ```
+`make init` must finish before the first DAG run — the marts' tests use
+`dbt_utils`, so `dbt run` fails if the packages are missing.
+
 - Airflow → http://localhost:8080 (admin / admin)
 - MinIO console → http://localhost:9001 (minio / minio12345)
 - ClickHouse HTTP → http://localhost:8123
@@ -62,7 +64,15 @@ docker compose exec clickhouse clickhouse-client -q \
   "SELECT post_date, post_count, avg_score FROM reddit.agg_daily_subreddit ORDER BY post_date DESC LIMIT 10"
 ```
 
-### 5. Dashboard
+### 5. Data quality & lineage
+```bash
+make dbt-test       # not_null / unique / accepted_range
+make dbt-freshness  # warns when raw_posts is older than 26h
+make dbt-docs       # lineage graph into dbt/target/
+```
+`dbt test` does not run source freshness — `make dbt-freshness` is a separate gate.
+
+### 6. Dashboard
 Follow [`docs/looker_studio_setup.md`](docs/looker_studio_setup.md) to publish the
 marts to a Google Sheet and build the Looker Studio report.
 
@@ -169,4 +179,3 @@ Data comes from the public Reddit API (r/dataengineering) via PRAW. Project idea
 adapted from the "Reddit ETL Pipeline" entry in the Data Engineer Cafe project
 list; the implementation here is an independent rebuild on Airflow + dbt +
 ClickHouse + Looker Studio.
-# reddit-dataeng
