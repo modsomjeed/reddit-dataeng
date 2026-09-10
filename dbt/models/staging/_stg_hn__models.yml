@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_hn__stories
+    description: >
+      Cleaned, de-duplicated Hacker News stories (latest snapshot per story_id),
+      with HTML decoded out of story_text. This is the trusted silver model
+      every mart builds on.
+    columns:
+      - name: story_id
+        description: "Unique HN item id (grain of this model)."
+        tests:
+          - not_null
+          - unique
+      - name: title
+        tests: [not_null]
+      - name: score
+        description: "Points at the latest snapshot. Can be 0 for a brand-new story."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: num_comments
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: post_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["ask_hn", "show_hn", "story"]
+      - name: created_hour
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 23
+      - name: engagement_score
+        description: "score + num_comments ― simple engagement proxy."

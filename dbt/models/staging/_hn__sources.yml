@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Bronze layer ― Hacker News stories landed from MinIO by Airflow."
+    schema: hackernews
+    tables:
+      - name: raw_stories
+        description: >
+          One row per (story_id, ingested_at) snapshot, as extracted from the
+          HN Algolia API. Append-only: re-running a day adds a newer snapshot
+          rather than replacing the old one.
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: { count: 26, period: hour }
+          error_after: { count: 48, period: hour }
+        columns:
+          - name: story_id
+            description: "Hacker News item id (Algolia objectID)."
+            tests: [not_null]
+          - name: score
+            description: "Points at extraction time. HN does not expose downvotes, so there is no upvote ratio."
+          - name: post_type
+            description: "ask_hn | show_hn | story ― derived from the title prefix."
