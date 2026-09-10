@@ -35,7 +35,7 @@ down:  ## stop the stack (keep volumes)
 	docker compose down
 
 trigger:  ## manually run the ELT DAG once
-	docker compose exec airflow-scheduler airflow dags trigger reddit_elt
+	docker compose exec airflow-scheduler airflow dags trigger hn_elt
 
 dbt-run:  ## build staging + marts
 	$(call dbt,run)
@@ -43,7 +43,7 @@ dbt-run:  ## build staging + marts
 dbt-test:  ## data-quality gate: not_null / unique / accepted_range
 	$(call dbt,test)
 
-dbt-freshness:  ## warn when raw_posts is older than 26h
+dbt-freshness:  ## warn when raw_stories is older than 26h
 	$(call dbt,source freshness)
 
 dbt-docs:  ## generate the lineage graph into dbt/target/

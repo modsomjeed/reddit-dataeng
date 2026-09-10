@@ -1,5 +1,5 @@
 # ============================================================
-#  reddit-dataeng-pipeline ― local data stack
+#  hn-dataeng-pipeline ― local data stack
 #  Airflow (LocalExecutor) + Postgres + MinIO + ClickHouse
 #  dbt runs INSIDE the Airflow image (installed in airflow/Dockerfile)
 # ============================================================
