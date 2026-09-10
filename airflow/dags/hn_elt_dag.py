@@ -1,18 +1,21 @@
 """
-reddit_elt_dag ― end-to-end ELT for the r/dataengineering project.
+hn_elt_dag ― end-to-end ELT for the Hacker News project.
 
-    extract_reddit           (E)  PRAW → NDJSON → MinIO (bronze)
+    extract_stories          (E)  Algolia API → NDJSON → MinIO (bronze)
         │
-    load_clickhouse_raw      (L)  MinIO → ClickHouse raw_posts
+    load_clickhouse_raw      (L)  MinIO → ClickHouse raw_stories
         │
     dbt_run                  (T)  staging (silver) + marts (gold)
         │
     dbt_test                 (Governance) schema + data-quality tests
         │
+    dbt_source_freshness     (Governance) is the bronze layer still current?
+        │
     export_to_sheets         (Data product) mart → Google Sheet → Looker Studio
 
-Runs daily. Idempotent: raw_posts keeps every snapshot, dbt de-duplicates to
-the latest state per post_id.
+Runs daily and asks the API for the logical date's UTC day, so a backfill or a
+re-run fetches exactly the same window. Idempotent: raw_stories keeps every
+snapshot, dbt de-duplicates to the latest state per story_id.
 """
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-from scripts.reddit_extract import extract_reddit_to_minio
+from scripts.hn_extract import extract_hn_to_minio
 from scripts.clickhouse_load import load_minio_to_clickhouse
 from scripts.export_to_sheets import export_marts_to_sheets
 
@@ -43,19 +46,24 @@ default_args = {
     "depends_on_past": False,
 }
 
+
+def _dbt(command: str) -> str:
+    return f"cd {DBT_DIR} && {DBT_ENV} dbt {command} --profiles-dir {DBT_DIR}"
+
+
 with DAG(
-    dag_id="reddit_elt",
-    description="Reddit r/dataengineering ELT: PRAW→MinIO→ClickHouse→dbt→Looker",
+    dag_id="hn_elt",
+    description="Hacker News ELT: Algolia→MinIO→ClickHouse→dbt→Looker",
     start_date=datetime(2026, 1, 1),
     schedule="0 6 * * *",          # every day at 06:00
     catchup=False,
     default_args=default_args,
-    tags=["reddit", "elt", "clickhouse", "dbt", "bootcamp"],
+    tags=["hackernews", "elt", "clickhouse", "dbt", "bootcamp"],
 ) as dag:
 
-    extract_reddit = PythonOperator(
-        task_id="extract_reddit",
-        python_callable=extract_reddit_to_minio,
+    extract_stories = PythonOperator(
+        task_id="extract_stories",
+        python_callable=extract_hn_to_minio,
         op_kwargs={"ds": "{{ ds }}", "run_id": "{{ run_id }}"},
     )
 
@@ -66,12 +74,18 @@ with DAG(
 
     dbt_run = BashOperator(
         task_id="dbt_run",
-        bash_command=f"cd {DBT_DIR} && {DBT_ENV} dbt run --profiles-dir {DBT_DIR}",
+        bash_command=_dbt("run"),
     )
 
     dbt_test = BashOperator(
         task_id="dbt_test",
-        bash_command=f"cd {DBT_DIR} && {DBT_ENV} dbt test --profiles-dir {DBT_DIR}",
+        bash_command=_dbt("test"),
+    )
+
+    # `dbt test` does not evaluate source freshness ― it needs its own command.
+    dbt_source_freshness = BashOperator(
+        task_id="dbt_source_freshness",
+        bash_command=_dbt("source freshness"),
     )
 
     export_sheets = PythonOperator(
@@ -79,4 +93,11 @@ with DAG(
         python_callable=export_marts_to_sheets,
     )
 
-    extract_reddit >> load_clickhouse_raw >> dbt_run >> dbt_test >> export_sheets
+    (
+        extract_stories
+        >> load_clickhouse_raw
+        >> dbt_run
+        >> dbt_test
+        >> dbt_source_freshness
+        >> export_sheets
+    )

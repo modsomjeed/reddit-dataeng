@@ -18,7 +18,7 @@ import os
 log = logging.getLogger(__name__)
 
 # marts we publish → each becomes a worksheet/tab in the Google Sheet
-MARTS = ["agg_daily_subreddit", "fct_posts", "dim_authors"]
+MARTS = ["agg_daily_activity", "fct_stories", "dim_authors"]
 
 
 def _ch_client():
@@ -50,10 +50,12 @@ def export_marts_to_sheets(**_) -> str:
     sh = gc.open_by_key(os.environ["GSHEET_ID"])
 
     ch = _ch_client()
-    db = os.environ.get("CLICKHOUSE_DB", "reddit")
+    # dbt appends the custom schema to the profile schema, so models configured
+    # with `+schema: marts` land in `<CLICKHOUSE_DB>_marts`, not `<CLICKHOUSE_DB>`.
+    marts_db = f"{os.environ.get('CLICKHOUSE_DB', 'hackernews')}_marts"
 
     for mart in MARTS:
-        df = ch.query_df(f"SELECT * FROM {db}.{mart}")
+        df = ch.query_df(f"SELECT * FROM {marts_db}.{mart}")
         # Looker/Sheets don't like NaN or datetimes ― stringify safely
         df = df.astype(object).where(df.notna(), "").astype(str)
         try:
