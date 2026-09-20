@@ -36,3 +36,81 @@ models:
               max_value: 23
       - name: engagement_score
         description: "score + num_comments ― simple engagement proxy."
+
+unit_tests:
+  # ทดสอบ "logic ถูกไหม" ไม่ใช่ "ข้อมูลถูกไหม" ― ใช้แถวปลอมที่เราเขียนเอง
+  # จึงรันได้ในไม่กี่วินาทีและไม่ขึ้นกับว่าวันนี้ HN มีข้อมูลอะไร
+  - name: dedup_keeps_the_latest_snapshot
+    description: >
+      raw_stories เก็บทุก snapshot ของ story เดียวกัน โมเดลนี้ต้องยุบเหลือ
+      snapshot ล่าสุดเท่านั้น นี่คือจุดที่บังคับ idempotency ให้ทั้ง pipeline:
+      รัน DAG วันเดิมซ้ำกี่ครั้ง marts ก็ต้องเห็นตัวเลขชุดเดียว
+    model: stg_hn__stories
+    given:
+      - input: source('raw', 'raw_stories')
+        rows:
+          # story 100 ― โดนดึงสองรอบ คะแนนโตขึ้นระหว่างนั้น
+          - story_id: "100"
+            title: "A story that got popular"
+            story_text: ""
+            author: "alice"
+            score: 5
+            num_comments: 1
+            permalink: "https://news.ycombinator.com/item?id=100"
+            url: "https://example.com/a"
+            post_type: "story"
+            is_self: 0
+            created_utc: "2026-09-01 08:00:00"
+            ingested_at: "2026-09-01 10:00:00"
+            ingest_date: "2026-09-01"
+          - story_id: "100"
+            title: "A story that got popular"
+            story_text: ""
+            author: "alice"
+            score: 40
+            num_comments: 12
+            permalink: "https://news.ycombinator.com/item?id=100"
+            url: "https://example.com/a"
+            post_type: "story"
+            is_self: 0
+            created_utc: "2026-09-01 08:00:00"
+            ingested_at: "2026-09-02 10:00:00"
+            ingest_date: "2026-09-02"
+    expect:
+      rows:
+        # เหลือแถวเดียว และเป็นค่าจาก snapshot วันที่ 2 ไม่ใช่วันที่ 1
+        - story_id: "100"
+          score: 40
+          num_comments: 12
+          ingested_at: "2026-09-02 10:00:00"
+
+  - name: derived_fields_are_computed_correctly
+    description: >
+      ตรวจสูตรที่คำนวณในโมเดล ― engagement_score, การถอด HTML, trim ชื่อเรื่อง
+      และการแตกชั่วโมง/วันในสัปดาห์ออกจาก created_utc ซึ่ง dashboard เอาไปทำ heatmap
+    model: stg_hn__stories
+    given:
+      - input: source('raw', 'raw_stories')
+        rows:
+          - story_id: "200"
+            title: "  Show HN: my thing  "
+            story_text: "<p>Ship it &#x2F; fast</p>"
+            author: "bob"
+            score: 7
+            num_comments: 3
+            permalink: "https://news.ycombinator.com/item?id=200"
+            url: ""
+            post_type: "show_hn"
+            is_self: 1
+            created_utc: "2026-09-02 14:30:00"
+            ingested_at: "2026-09-02 15:00:00"
+            ingest_date: "2026-09-02"
+    expect:
+      rows:
+        - story_id: "200"
+          title: "Show HN: my thing"        # trim ตัดช่องว่างหัวท้าย
+          story_text: "Ship it / fast"      # ถอดแท็ก แล้วแปลง &#x2F; เป็น /
+          story_text_length: 14
+          engagement_score: 10              # 7 + 3
+          created_hour: 14
+          created_dow: 3                    # วันพุธ
