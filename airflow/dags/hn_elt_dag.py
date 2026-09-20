@@ -57,6 +57,9 @@ with DAG(
     start_date=datetime(2026, 1, 1),
     schedule="0 6 * * *",          # every day at 06:00
     catchup=False,
+    # dbt_run / dbt_test rebuild the same models in the same schema, so two
+    # dag runs at once would race. Backfilling a date range must stay serial.
+    max_active_runs=1,
     default_args=default_args,
     tags=["hackernews", "elt", "clickhouse", "dbt", "bootcamp"],
 ) as dag:
