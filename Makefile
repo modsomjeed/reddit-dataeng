@@ -49,6 +49,10 @@ dbt-freshness:  ## warn when raw_stories is older than 26h
 dbt-docs:  ## generate the lineage graph into dbt/target/
 	$(call dbt,docs generate)
 
+docs-gen:  ## regenerate docs/lineage.md + docs/data-dictionary.md from dbt artifacts
+	$(MAKE) dbt-docs
+	python3 scripts/generate_docs.py
+
 logs:  ## tail scheduler logs
 	docker compose logs -f airflow-scheduler
 
