@@ -5,25 +5,66 @@ models:
     description: "Fact table ― one current row per HN story. Feeds the dashboard detail views."
     columns:
       - name: story_id
+        description: "Grain of the table ― one row per Hacker News story."
         tests: [not_null, unique]
-      - name: score
-        tests: [not_null]
+      - name: title
+        description: "Story headline, shown in the 'top stories' table."
+      - name: author
+        description: "Submitter's username. Joins to dim_authors."
       - name: post_type
+        description: "ask_hn | show_hn | story ― the slice behind the content-mix chart."
         tests:
           - accepted_values:
               values: ["ask_hn", "show_hn", "story"]
+      - name: score
+        description: "Points at the latest snapshot."
+        tests: [not_null]
+      - name: num_comments
+        description: "Comment count at the latest snapshot."
       - name: engagement_score
         description: "score + num_comments."
+      - name: story_text_length
+        description: "Character count of the body text. 0 for link posts."
+      - name: is_self
+        description: "1 = text post, 0 = link post."
+      - name: created_utc
+        description: "Submission timestamp in UTC."
+      - name: created_hour
+        description: "Hour of day (0-23, UTC) ― heatmap axis."
+      - name: created_dow
+        description: "Day of week (1 = Monday … 7 = Sunday) ― heatmap axis."
+      - name: permalink
+        description: "HN discussion URL ― the click-through target in the dashboard table."
+      - name: url
+        description: "Outbound link. Empty for self-posts."
+      - name: ingested_at
+        description: "When the surviving snapshot was extracted. Useful for spotting stale rows."
 
   - name: dim_authors
     description: "Author-level aggregates for the 'top contributors' view. Excludes [deleted]."
     columns:
       - name: author
+        description: "Grain of the table ― one row per HN username."
         tests: [not_null, unique]
       - name: total_stories
+        description: "How many stories this author submitted in the loaded window."
         tests:
           - dbt_utils.accepted_range:
               min_value: 1
+      - name: total_score
+        description: "Sum of points across all their stories."
+      - name: avg_score
+        description: >
+          Mean points per story. Read alongside total_stories ― a single lucky
+          post gives a high average that says little about the author.
+      - name: total_comments
+        description: "Sum of comments across all their stories."
+      - name: best_story_score
+        description: "Points on their highest-scoring story."
+      - name: first_seen
+        description: "Submission time of their earliest story in the window."
+      - name: last_seen
+        description: "Submission time of their most recent story in the window."
 
   - name: agg_daily_activity
     description: >
@@ -31,18 +72,39 @@ models:
       There is no average upvote ratio here: HN does not publish downvotes, so
       unlike the Reddit version of this project there is no ratio to average.
       Engagement quality is tracked with avg_score and avg_comments instead.
+
+      Caveat for the dashboard: the current day is still in progress, so its
+      counts and averages are always low. Filter it out or label it.
     columns:
       - name: activity_date
+        description: "Grain of the table ― one row per UTC day, from created_utc."
         tests: [not_null]
       - name: story_count
+        description: "Stories submitted that day."
         tests:
           - dbt_utils.accepted_range:
               min_value: 0
+      - name: total_score
+        description: "Sum of points across that day's stories."
       - name: avg_score
+        description: "Mean points per story that day ― the engagement-quality line."
         tests:
           - dbt_utils.accepted_range:
               min_value: 0
+      - name: total_comments
+        description: "Sum of comments across that day's stories."
       - name: avg_comments
+        description: "Mean comments per story that day ― the second engagement-quality line."
         tests:
           - dbt_utils.accepted_range:
               min_value: 0
+      - name: ask_hn_count
+        description: "Stories titled 'Ask HN:' that day."
+      - name: show_hn_count
+        description: "Stories titled 'Show HN:' that day."
+      - name: link_story_count
+        description: "Everything that is neither Ask HN nor Show HN."
+      - name: self_posts
+        description: "Stories with body text and no outbound link."
+      - name: link_posts
+        description: "Stories pointing at an external URL."

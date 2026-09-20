@@ -13,7 +13,14 @@ models:
           - not_null
           - unique
       - name: title
+        description: "Story headline, trimmed of surrounding whitespace."
         tests: [not_null]
+      - name: story_text
+        description: >
+          Body of a self-post with HTML tags stripped and entities decoded
+          (extractTextFromHTML then decodeHTMLComponent). Empty for link posts.
+      - name: author
+        description: "Submitter's public HN username."
       - name: score
         description: "Points at the latest snapshot. Can be 0 for a brand-new story."
         tests:
@@ -21,19 +28,41 @@ models:
           - dbt_utils.accepted_range:
               min_value: 0
       - name: num_comments
+        description: "Comment count at the latest snapshot."
         tests:
           - dbt_utils.accepted_range:
               min_value: 0
+      - name: permalink
+        description: "Canonical HN discussion URL ― used as the click-through in the dashboard."
+      - name: url
+        description: "Outbound link the story points at. Empty for self-posts."
       - name: post_type
+        description: "ask_hn | show_hn | story ― the community's own category, from the title prefix."
         tests:
           - not_null
           - accepted_values:
               values: ["ask_hn", "show_hn", "story"]
+      - name: is_self
+        description: "1 = text post, 0 = link post. Splits the stacked bar on the content page."
+      - name: created_utc
+        description: "Submission timestamp in UTC. Drives activity_date in the daily mart."
+      - name: ingested_at
+        description: >
+          Extraction timestamp of the snapshot that survived de-duplication, i.e.
+          the newest one for this story. The singular test
+          assert_staging_keeps_latest_snapshot asserts exactly that.
+      - name: ingest_date
+        description: "Date part of ingested_at, carried through from the bronze partition key."
       - name: created_hour
+        description: "Hour of day (0-23, UTC) the story was posted. One axis of the heatmap."
         tests:
           - dbt_utils.accepted_range:
               min_value: 0
               max_value: 23
+      - name: created_dow
+        description: "Day of week (1 = Monday … 7 = Sunday). The other axis of the heatmap."
+      - name: story_text_length
+        description: "Character count of the decoded body text. 0 for link posts."
       - name: engagement_score
         description: "score + num_comments ― simple engagement proxy."
 
