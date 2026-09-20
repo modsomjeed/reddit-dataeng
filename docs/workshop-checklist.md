@@ -42,7 +42,7 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 
 - [ ] 👩 **User Empathy Map** (หน้า 47) — เลือกผู้ใช้ 1 คน (เช่น "คนทำ content ด้าน tech")
       แล้วเขียน SEE / THINK / DO ว่าเขาเห็นอะไร คิดอะไร ตัดสินใจอะไร
-- [ ] 🤖 **จับคู่คำถาม → หมวด viz** (หน้า 35, 42) — 6 คำถามใน `questions.md`
+- [x] 🤖 **จับคู่คำถาม → หมวด viz** (หน้า 35, 42) — 6 คำถามใน `questions.md`
       เข้าหมวดไหนบ้าง: correlation / ranking / distribution / change over time / magnitude / part-to-whole
 - [ ] 🤖 เขียน layout 3 หน้าลง `looker_studio_setup.md` ว่าแต่ละหน้ามี chart อะไร ตอบคำถามข้อไหน
 
@@ -56,9 +56,9 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 - [ ] 👩 ตั้งค่าแชร์แบบ "anyone with the link can view"
 
 ### M2.4 Data Storytelling  🔴
-- [ ] 🤖 เขียน **GAME** (หน้า 56) — Goal / Audience / Message / Expression ลง `docs/storytelling.md`
-- [ ] 🤖 เขียน **What? So What? Now What?** (หน้า 65) จาก insight ที่เจอในข้อมูลจริง
-- [ ] 🤖 แปลงเป็น **SCQA** (หน้า 63) — Situation / Complication / Question / Answer
+- [x] 🤖 เขียน **GAME** (หน้า 56) — Goal / Audience / Message / Expression ลง `docs/storytelling.md`
+- [x] 🤖 เขียน **What? So What? Now What?** (หน้า 65) จาก insight ที่เจอในข้อมูลจริง
+- [x] 🤖 แปลงเป็น **SCQA** (หน้า 63) — Situation / Complication / Question / Answer
 - [ ] 👩 ทวนด้วย checklist 7 ข้อ (หน้า 72) — goal ชัดไหม, so what ชัดไหม, now what ทำได้จริงไหม
 
 ### M2.5 เก็บหลักฐาน  🔴
@@ -80,16 +80,16 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 
 ---
 
-## M4 — ปิดช่องว่าง Thinking with Data  ·  ~30 นาที
+## M4 — ปิดช่องว่าง Thinking with Data  ·  ~30 นาที  ·  ✅ เสร็จแล้ว
 
 อ้างอิง: `Thinking with Data.pdf` หน้า 41–49
 
 ตอนนี้คำถามทั้ง 6 ข้อใน `questions.md` เป็น Descriptive/Diagnostic ล้วน ยังขาดอีก 2 ระดับ
 
-- [ ] 🤖 ติดป้ายคำถามเดิม 6 ข้อว่าเป็นระดับไหน (Descriptive / Diagnostic)
-- [ ] 👩 เพิ่มคำถาม **Predictive** — เช่น "โพสต์แบบไหนมีแนวโน้มได้คะแนนสูง" แล้วบอกว่า mart ไหนตอบ
-- [ ] 👩 เพิ่มคำถาม **Prescriptive** — เช่น "ถ้าจะโพสต์ให้คนเห็นเยอะ ควรโพสต์กี่โมง วันไหน แบบไหน"
-- [ ] 🤖 ถ้าคำถามใหม่ต้องการ mart ใหม่ ให้เพิ่ม — แต่ตามกติกาใน `questions.md`
+- [x] 🤖 ติดป้ายคำถามเดิม 6 ข้อว่าเป็นระดับไหน (Descriptive / Diagnostic)
+- [x] 🤖 เพิ่มคำถาม **Predictive** — เช่น "โพสต์แบบไหนมีแนวโน้มได้คะแนนสูง" แล้วบอกว่า mart ไหนตอบ
+- [x] 🤖 เพิ่มคำถาม **Prescriptive** — เช่น "ถ้าจะโพสต์ให้คนเห็นเยอะ ควรโพสต์กี่โมง วันไหน แบบไหน"
+- [x] 🤖 ตรวจแล้วว่ายังไม่ต้องสร้าง mart ใหม่ — ข้อ 7/8 ตอบได้ด้วย GROUP BY บน fct_stories เดิม — แต่ตามกติกาใน `questions.md`
       ต้องเพิ่มคำถามก่อนเสมอ ห้ามสร้าง mart ที่ไม่มีคำถามรองรับ
 
 ---
