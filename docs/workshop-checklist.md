@@ -67,16 +67,16 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 
 ---
 
-## M3 — ปิดช่องว่าง dbt  ·  ~1 ชม.
+## M3 — ปิดช่องว่าง dbt  ·  ~1 ชม.  ·  ✅ เสร็จแล้ว
 
 อ้างอิง: `analytics-engineering-dbt-clickhouse.pdf` หน้า 46–60
 
-- [ ] 🤖 **Singular test** (หน้า 55–56) — เขียน `.sql` ใน `dbt/tests/`
+- [x] 🤖 **Singular test** (หน้า 55–56) — เขียน `.sql` ใน `dbt/tests/`
       เช่น ยืนยันว่าไม่มี story ที่ `score < 0` หรือ `created_utc` อยู่ในอนาคต
-- [ ] 🤖 **Unit test** (หน้า 57–59) — mock input แล้วยืนยัน logic
+- [x] 🤖 **Unit test** (หน้า 57–59) — mock input แล้วยืนยัน logic
       เช่น `engagement_score = score + num_comments` และ `post_type` แยก Ask/Show ถูกต้อง
-- [ ] 🤖 `make dbt-docs` แล้วแคป **lineage graph** ใส่ `images/`
-- [ ] 🤖 เขียน **data dictionary** + ประเด็น PII ลง `docs/` (author = username สาธารณะ ไม่เก็บ PII เพิ่ม)
+- [x] 🤖 lineage graph — ทำเป็น Mermaid ใน `docs/lineage.md` แทนการแคปภาพ (GitHub เรนเดอร์ให้ และอัปเดตตามโค้ดด้วย `make docs-gen`)
+- [x] 🤖 **data dictionary** + PII — `docs/data-dictionary.md` generate จาก dbt artifacts
 
 ---
 
