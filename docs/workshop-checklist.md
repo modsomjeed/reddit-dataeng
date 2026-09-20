@@ -37,14 +37,14 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 - [ ] 👩 ก๊อป Sheet ID จาก URL มาใส่ `GSHEET_ID` ใน `.env`
 - [ ] 🤖 ตั้ง `ENABLE_SHEETS_EXPORT=true` แล้วรัน DAG ตรวจว่า 3 marts ขึ้น Sheet ครบ
 
-### M2.2 ออกแบบก่อนลงมือวาด  🔴
+### M2.2 ออกแบบก่อนลงมือวาด  🟡 เหลือ Empathy Map
 อย่าเปิด Looker Studio ก่อนทำ 2 ข้อนี้ — สไลด์หน้า 46 บอกว่า dashboard ที่ดีต้องเล็งผู้ใช้คนเดียว
 
 - [ ] 👩 **User Empathy Map** (หน้า 47) — เลือกผู้ใช้ 1 คน (เช่น "คนทำ content ด้าน tech")
       แล้วเขียน SEE / THINK / DO ว่าเขาเห็นอะไร คิดอะไร ตัดสินใจอะไร
 - [x] 🤖 **จับคู่คำถาม → หมวด viz** (หน้า 35, 42) — 6 คำถามใน `questions.md`
       เข้าหมวดไหนบ้าง: correlation / ranking / distribution / change over time / magnitude / part-to-whole
-- [ ] 🤖 เขียน layout 3 หน้าลง `looker_studio_setup.md` ว่าแต่ละหน้ามี chart อะไร ตอบคำถามข้อไหน
+- [x] 🤖 เขียน layout 3 หน้าลง `looker_studio_setup.md` — เรียงตามเรื่องเล่า ไม่ใช่ตามตาราง
 
 ### M2.3 สร้าง dashboard  🔴
 - [ ] 👩 ต่อ Looker Studio → Google Sheets connector → เลือก 3 tabs
@@ -55,11 +55,11 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
       (ไม่งั้น time series จะมีหน้าผาดิ่งที่ทำให้คนอ่านเข้าใจผิด)
 - [ ] 👩 ตั้งค่าแชร์แบบ "anyone with the link can view"
 
-### M2.4 Data Storytelling  🔴
+### M2.4 Data Storytelling  ✅
 - [x] 🤖 เขียน **GAME** (หน้า 56) — Goal / Audience / Message / Expression ลง `docs/storytelling.md`
 - [x] 🤖 เขียน **What? So What? Now What?** (หน้า 65) จาก insight ที่เจอในข้อมูลจริง
 - [x] 🤖 แปลงเป็น **SCQA** (หน้า 63) — Situation / Complication / Question / Answer
-- [ ] 👩 ทวนด้วย checklist 7 ข้อ (หน้า 72) — goal ชัดไหม, so what ชัดไหม, now what ทำได้จริงไหม
+- [x] 🤖 ทวนด้วย checklist 7 ข้อ (หน้า 72) — ตารางอยู่ท้าย `storytelling.md` (กวางอ่านทวนอีกรอบได้) — goal ชัดไหม, so what ชัดไหม, now what ทำได้จริงไหม
 
 ### M2.5 เก็บหลักฐาน  🔴
 - [ ] 👩 แคปหน้า dashboard ทั้ง 3 หน้า ใส่ `images/`
