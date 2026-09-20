@@ -44,13 +44,18 @@ services:
 
   # ---------- MinIO object storage (data lake / bronze) ----------
   minio:
-    image: minio/minio:latest
+    # MinIO ถอด image ออกจาก Docker Hub แล้ว (pull access denied) — ใช้ registry
+    # ทางการที่ quay.io แทน. ต้องใช้ :latest เพราะ tag RELEASE.* บน quay
+    # build ไว้เฉพาะ amd64 มีแต่ latest ที่เป็น multi-arch (รองรับ Apple Silicon)
+    image: quay.io/minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000:9000"   # S3 API
+      # host 9000 อาจถูกโปรเจกต์อื่นจองอยู่ (เช่น SonarQube) จึง map เป็น 9010
+      # ไม่กระทบ container อื่นที่คุยกับ MinIO เพราะใช้ http://minio:9000 ในเน็ตเวิร์ก docker
+      - "9010:9000"   # S3 API (host 9010 -> container 9000)
       - "9001:9001"   # web console
     volumes:
       - minio-data:/data
@@ -62,7 +67,7 @@ services:
 
   # create the bucket on startup
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       minio:
         condition: service_started
