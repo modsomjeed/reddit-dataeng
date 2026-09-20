@@ -16,12 +16,12 @@ Phase 5 — Dashboard คือ **deliverable เดียวที่โจท�
 
 ---
 
-## M1 — ปิดงานค้างจากวันนี้  ·  ~20 นาที
+## M1 — ปิดงานค้างจากวันนี้  ·  ~20 นาที  ·  🟡 เหลือ push
 
-- [ ] 🤖 รอ backfill 2 เดือนจบ แล้วตรวจว่าทุกวันมีข้อมูลต่อเนื่อง ไม่มีวันหาย
-- [ ] 🤖 `make dbt-test` + `make dbt-freshness` ต้องเขียวหลัง backfill
-- [ ] 🤖 ลบของตกค้างยุค Reddit — ClickHouse database `reddit`, MinIO bucket `reddit-raw`
-- [ ] 🤖 เคลียร์ DAG run สีแดงที่ค้างใน UI (`manual__2026-09-20T08:26:51`)
+- [x] 🤖 backfill 2 เดือนเสร็จ — 63 วันต่อเนื่อง 20 ก.ค.–20 ก.ย. ไม่มีวันหาย
+- [x] 🤖 `make dbt-test` 28/28 + `make dbt-freshness` เขียวหลัง backfill
+- [x] 🤖 ลบของตกค้างยุค Reddit — ClickHouse database `reddit`, MinIO bucket `reddit-raw`
+- [x] 🤖 ลบ DAG run สีแดงที่ค้างใน UI — ตอนนี้ 63 runs เขียวทั้งหมด
 - [ ] 👩 สั่ง push 5 commits ขึ้น GitHub (backup งานก่อนทำต่อ)
 
 ---
