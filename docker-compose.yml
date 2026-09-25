@@ -40,9 +40,11 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_DB: ${CLICKHOUSE_DB}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_DASHBOARD_PASSWORD: ${CLICKHOUSE_DASHBOARD_PASSWORD}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+      - ./scripts/create_users.sh:/docker-entrypoint-initdb.d/create_users.sh:ro
     ports:
       - "127.0.0.1:${CLICKHOUSE_HTTP_PORT}:8123"
     healthcheck:
@@ -73,10 +75,12 @@ services:
     build: ./dashboard
     image: reddit-submission-dashboard
     container_name: dashboard
-    env_file: .env
     environment:
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_HTTP_PORT: 8123
+      # read-only user: the analyst role can SELECT mart tables and nothing else
+      CLICKHOUSE_USER: dashboard
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_DASHBOARD_PASSWORD}
     ports:
       - "127.0.0.1:8501:8501"
     depends_on:

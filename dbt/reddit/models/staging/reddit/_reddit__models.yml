@@ -7,8 +7,10 @@ models:
       - name: post_id
         description: "Primary key — Reddit's base36 post id."
         tests: [not_null, unique]
-      - name: author
-        description: "Reddit username of the poster; '[deleted]' if the account is gone."
+      - name: author_id
+        description: "Salted SHA-256 of the poster's username (PII_HASH_SALT); null for deleted accounts. The username itself stays in the raw layer only."
+        meta:
+          pii: pseudonymised
       - name: title
         description: "Post title."
       - name: body

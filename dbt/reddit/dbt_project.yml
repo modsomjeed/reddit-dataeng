@@ -22,3 +22,9 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+models:
+  reddit:
+    mart:
+      # the analyst role (dashboard user) may read marts, never raw or staging
+      +grants:
+        select: ['analyst']
