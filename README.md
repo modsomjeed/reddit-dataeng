@@ -29,7 +29,6 @@ Arctic Shift API → RustFS (raw JSON) → ClickHouse (raw) → dbt (staging →
 
     git clone https://github.com/modsomjeed/reddit-dataeng.git
     cd reddit-dataeng
-    git checkout submission
 
 ### Step 2 — Create your `.env`
 
