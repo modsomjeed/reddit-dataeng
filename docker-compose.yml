@@ -1,0 +1,24 @@
+name: reddit-submission
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:${CHVER:-latest}
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+    ports:
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT}:8123"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  clickhouse-data:
