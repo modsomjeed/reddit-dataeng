@@ -3,7 +3,7 @@ title Scenarios — System sequence diagram: UC3 Explore tool trends
 skinparam shadowing false
 hide footbox
 
-actor "Analyst" as analyst
+actor "Analyst / DE Lead\n(via dashboard)" as analyst
 participant "Reddit Data Platform" as system
 
 analyst -> system : queryToolTrend(tools, from_month, to_month)
@@ -13,6 +13,7 @@ analyst -> system : compareWindows(first_window, last_window)
 system --> analyst : change in title_share_pct per tool
 
 note over analyst, system
+  Reads marts only, as the dashboard user (analyst role).
   Use title_share_pct, not share_pct, to compare periods:
   removed posts have no body, and the removal rate rises sharply in 2026.
 end note

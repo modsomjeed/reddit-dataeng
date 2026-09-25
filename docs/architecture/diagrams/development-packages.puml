@@ -9,6 +9,7 @@ package "reddit-dataeng/" {
     artifact "load_clickhouse.py" as ld
     artifact "settings.py" as st
     artifact "create_tables.sql" as ddl
+    artifact "create_users.sh" as users
   }
   package "airflow/" as af {
     artifact "Dockerfile\n(apache/airflow + dbt venv)" as afd
@@ -25,8 +26,14 @@ package "reddit-dataeng/" {
       folder "tests/" as tests
     }
   }
-  package "docs/architecture/" as docs {
-    folder "diagrams/  (*.puml → *.svg)" as diag
+  package "dashboard/  (uv project)" as dashpkg {
+    artifact "app.py\n(Streamlit + Altair)" as app
+    artifact "Dockerfile" as dashd
+  }
+  package "docs/" as docs {
+    folder "architecture/diagrams/  (*.puml → *.svg)" as diag
+    artifact "governance.md" as gov
+    folder "dashboard/  (story.md)" as story
   }
   artifact "docker-compose.yml" as compose
   artifact "pyproject.toml\n(boto3)" as pyproj
@@ -43,6 +50,9 @@ mart ..> seeds : "ref()"
 tests ..> mart : "ref()"
 compose ..> afd : builds
 compose ..> ddl : "mounts as ClickHouse init script"
+compose ..> users : "mounts as ClickHouse init script"
+compose ..> dashd : builds
+app ..> mart : "reads (analyst role)"
 compose ..> dag : mounts
 compose ..> envex : "reads .env (copy of)"
 @enduml

@@ -19,9 +19,17 @@ partition "load_clickhouse" {
   :ClickHouse reads posts/<ds>.json via s3();
   :INSERT into reddit.posts\n(ReplacingMergeTree dedups by id);
 }
+partition "dbt_source_freshness" {
+  :Age of newest post in reddit.posts;
+  if (older than 72 h?) then (yes)
+    :Fail run: stale source;
+    stop
+  endif
+}
 partition "dbt_build" {
   :Build stg_reddit__posts, facts, marts;
   :Run data and singular tests;
+  :GRANT SELECT on marts to analyst;
 }
 stop
 note right

@@ -6,6 +6,7 @@ left to right direction
 object ":Airflow Scheduler" as scheduler
 object "extract_posts:BashOperator" as extract
 object "load_clickhouse:BashOperator" as load
+object "dbt_source_freshness:BashOperator" as fresh
 object "dbt_build:BashOperator" as dbt
 object ":Arctic Shift API" as arctic
 object "reddit-raw:RustFS bucket" as bucket
@@ -17,6 +18,8 @@ extract --> bucket : "1.2: putObject(posts/ds.json)"
 scheduler --> load : "2: run(ds) [1 succeeded]"
 load --> ch : "2.1: INSERT … SELECT FROM s3(posts/ds.json)"
 ch --> bucket : "2.1.1: GET posts/ds.json"
-scheduler --> dbt : "3: run() [2 succeeded]"
-dbt --> ch : "3.1: build staging, facts, marts\n3.2: run 26 tests"
+scheduler --> fresh : "3: run() [2 succeeded]"
+fresh --> ch : "3.1: max(created_utc) of reddit.posts"
+scheduler --> dbt : "4: run() [3 succeeded]"
+dbt --> ch : "4.1: build staging, facts, marts\n4.2: run 27 tests\n4.3: GRANT SELECT on marts TO analyst"
 @enduml

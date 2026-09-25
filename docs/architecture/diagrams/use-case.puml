@@ -6,6 +6,7 @@ skinparam shadowing false
 
 actor "Data Engineer" as de
 actor "Analyst" as analyst
+actor "DE Lead" as lead
 actor "Airflow Scheduler\n<<time>>" as scheduler
 actor "Arctic Shift API\n<<external system>>" as arctic
 
@@ -15,10 +16,12 @@ rectangle "Reddit Data Platform" {
   usecase "Process one day" as ucDay
   usecase "Extract posts for a day" as ucExtract
   usecase "Load raw posts into warehouse" as ucLoad
+  usecase "Check source freshness" as ucFresh
   usecase "Build and test dbt models" as ucBuild
   usecase "UC3 Explore tool trends (Q2)" as uc3
   usecase "UC4 Explore AI impact (Q1)" as uc4
   usecase "UC5 Browse lineage and data docs" as uc5
+  usecase "UC6 Read the AI-and-stack dashboard" as uc6
 }
 
 scheduler --> uc1
@@ -27,12 +30,16 @@ de --> uc5
 analyst --> uc3
 analyst --> uc4
 analyst --> uc5
+lead --> uc6
 
 uc1 ..> ucDay : <<include>>
 uc2 ..> ucDay : <<include>>
 ucDay ..> ucExtract : <<include>>
 ucDay ..> ucLoad : <<include>>
+ucDay ..> ucFresh : <<include>>
 ucDay ..> ucBuild : <<include>>
 
 ucExtract --> arctic
+uc6 ..> uc3 : <<include>>
+uc6 ..> uc4 : <<include>>
 @enduml

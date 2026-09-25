@@ -8,7 +8,8 @@ package "reddit (raw)" {
   entity "posts" as raw {
     * id : String
     --
-    title, selftext, author, link_flair_text
+    title, selftext, link_flair_text
+    author <<PII>>
     score, num_comments, upvote_ratio
     removed_by_category
     created_utc, retrieved_on
@@ -23,9 +24,10 @@ package "reddit_analytics — staging" {
   entity "stg_reddit__posts\n<<view>>" as stg {
     * post_id
     --
-    author, title, body, flair
+    author_id (salted hash), title, body, flair
     score, num_comments, upvote_ratio
-    removal_reason, is_removed
+    removal_reason, is_removed_at_capture
+    later_removal_type, is_removed_later
     posted_at, retrieved_at
   }
 }
@@ -40,19 +42,21 @@ package "reddit_analytics — seeds" {
   }
 }
 
-package "reddit_analytics — mart" {
+package "reddit_analytics — mart  (SELECT granted to analyst)" {
   entity "fct_post_tool_mentions" as fptm {
     * post_id
     * tool
     --
     category, is_in_title
-    posted_at, flair, is_removed
+    posted_at, flair
+    is_removed_at_capture, is_removed_later
     score, num_comments
   }
   entity "fct_posts" as fp {
     * post_id
     --
-    posted_at, flair, is_removed
+    posted_at, flair
+    is_removed_at_capture, is_removed_later
     score, num_comments, upvote_ratio
     tools_mentioned
     mentions_ai, mentions_ai_in_title

@@ -20,6 +20,12 @@ end
 
 system -> system : store raw day file
 system -> system : load day into warehouse
+system -> system : check source freshness
+
+alt newest post older than 72 h
+  system --> scheduler : run failed (stale source), models not rebuilt
+end
+
 system -> system : rebuild and test models
 
 alt a step fails

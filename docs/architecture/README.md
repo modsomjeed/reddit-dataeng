@@ -10,8 +10,8 @@ Diagrams are written in PlantUML (`diagrams/*.puml`) and rendered to SVG with `m
 
 Who uses the platform and what they do with it. The Airflow scheduler runs the
 daily pipeline; a data engineer backfills date ranges; an analyst explores tool
-trends and the impact of AI. Every pipeline run processes one day: extract, load,
-build and test.
+trends and the impact of AI; a DE lead reads the dashboard. Every pipeline run
+processes one day: extract, load, check source freshness, build and test.
 
 ![Use case diagram](diagrams/use-case.svg)
 
@@ -26,7 +26,8 @@ messages that cross its boundary.
 The data model. Raw posts land in `reddit.posts`; dbt cleans them into
 `stg_reddit__posts`, matches them against the `tools` seed to build
 `fct_post_tool_mentions` (one row per post and tool), and aggregates into monthly
-marts. `fct_posts` and the marts carry no usernames.
+marts. Staging replaces usernames with a salted hash (`author_id`); `fct_posts` and
+the marts carry neither, and only the marts are granted to the `analyst` role.
 
 ![Logical data model](diagrams/logical-data-model.svg)
 
@@ -34,7 +35,7 @@ marts. `fct_posts` and the marts carry no usernames.
 
 What happens at runtime during one daily run: which component calls which, and in
 what order. Airflow runs one DAG run at a time; each task retries with exponential
-backoff.
+backoff, and a stale source stops the run before dbt rebuilds anything.
 
 ![Communication diagram](diagrams/communication-daily-run.svg)
 ![Activity diagram](diagrams/activity-dag.svg)
@@ -42,15 +43,17 @@ backoff.
 ## Development view
 
 How the code is organised: Python scripts for extract and load, the Airflow DAG
-that runs them, and the dbt project with its staging, mart, seed and test folders.
+that runs them, the dbt project with its staging, mart, seed and test folders, and
+the Streamlit dashboard.
 
 ![Development view](diagrams/development-packages.svg)
 
 ## Physical view
 
-Where it runs: six containers in one Docker Compose project on a laptop, with
-named volumes for data. Only Airflow, the RustFS API and console, and ClickHouse
-are exposed, and only on 127.0.0.1.
+Where it runs: seven long-running containers (plus a one-off `airflow-init`) in one
+Docker Compose project on a laptop, with named volumes for data. Only Airflow, the
+dashboard, the RustFS API and console, and ClickHouse are exposed, and only on
+127.0.0.1. The dashboard connects as a read-only user.
 
 ![Deployment diagram](diagrams/deployment.svg)
 
@@ -63,4 +66,5 @@ are exposed, and only on 127.0.0.1.
 | ClickHouse reads the bucket with `s3()` | Load becomes a single SQL statement (ELT), with no row handling in Python. |
 | `ReplacingMergeTree` on the raw table | Reloading a day adds no duplicates; staging reads it with `FINAL`. |
 | `CronDataIntervalTimetable` in Airflow | Airflow 3's plain cron schedule sets `ds` to the run date, so a 02:00 run would extract an unfinished day. |
+| Dashboard user with the `analyst` role | The dashboard can read marts only; raw usernames and staging stay out of reach. See [governance](../governance.md). |
 | Trends use title-only mentions | Removed posts lose their body, and the removal rate rises from about 11% to 95%, so counting body text would bias later months downwards. |

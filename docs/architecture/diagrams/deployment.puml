@@ -8,7 +8,7 @@ node "Developer laptop (macOS)" as laptop {
 
   node "Docker Engine — compose project: reddit-submission" as docker {
     node "clickhouse\n<<container>>" as ch {
-      component "ClickHouse server 26.x" as chs
+      component "ClickHouse server 26.x\n(users: default, dashboard)" as chs
     }
     node "rustfs\n<<container>>" as rustfs {
       component "RustFS 1.0.0\n(S3 API + console)" as rfs
@@ -21,6 +21,9 @@ node "Developer laptop (macOS)" as laptop {
     }
     node "airflow-dag-processor\n<<container>>" as dagp {
       component "DAG processor" as dagps
+    }
+    node "dashboard\n<<container>>" as dash {
+      component "Streamlit dashboard\n(ClickHouse user: dashboard, role analyst)" as dashs
     }
     node "airflow-postgres\n<<container>>" as pg {
       database "Postgres 16\n(Airflow metadata)" as pgdb
@@ -42,6 +45,8 @@ pgdb -- vpg
 scheds -- vlogs
 
 browser --> apis : "HTTP 127.0.0.1:8080"
+browser --> dashs : "HTTP 127.0.0.1:8501"
+dashs --> chs : "HTTP clickhouse:8123 (marts only)"
 browser --> rfs : "HTTP 127.0.0.1:9001 (console)"
 hostcli --> chs : "HTTP 127.0.0.1:8123"
 hostcli --> rfs : "S3 127.0.0.1:9002"
