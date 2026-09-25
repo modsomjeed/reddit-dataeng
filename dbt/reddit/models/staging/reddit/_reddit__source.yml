@@ -1,0 +1,10 @@
+#dbt/reddit/models/staging/reddit/_reddit__source.yml
+version: 2
+
+sources:
+  - name: reddit
+    database: reddit
+    description: "Raw r/dataengineering data from the Arctic Shift archive, loaded by scripts/load_clickhouse.py."
+    tables:
+      - name: posts
+        description: "One row per post load. ReplacingMergeTree, so read with FINAL to get one row per post."
