@@ -1,0 +1,22 @@
+#dbt/reddit/models/staging/reddit/_reddit__source.yml
+version: 2
+
+sources:
+  - name: reddit
+    schema: reddit
+    description: "Raw r/dataengineering data from the Arctic Shift archive, loaded by scripts/load_clickhouse.py."
+    tables:
+      - name: posts
+        description: "One row per post load. ReplacingMergeTree, so read with FINAL to get one row per post."
+        # measured on post time, not load time: a stalled archive still "loads",
+        # but stops returning new posts. A daily run at 02:00 UTC loads the previous
+        # day, so the newest post is normally under ~26 hours old.
+        loaded_at_field: created_utc
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: author
+            description: "Reddit username. Personal data: raw layer only, not granted to the analyst role."
+            meta:
+              pii: direct

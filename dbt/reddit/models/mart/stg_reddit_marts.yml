@@ -1,0 +1,87 @@
+version: 2
+
+models:
+  - name: fct_post_tool_mentions
+    description: "One row per (post, tool) where the post's title or body mentions the tool."
+    columns:
+      - name: post_id
+        description: "FK to the post."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_reddit__posts')
+                field: post_id
+      - name: tool
+        description: "Tool mentioned, from the tools seed."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('tools')
+                field: tool
+      - name: category
+        description: "Tool category from the tools seed (orchestration, warehouse, ai, ...)."
+      - name: posted_at
+        description: "Time the post was created (UTC)."
+      - name: is_in_title
+        description: "True if the mention is in the title. Removed posts have no body, so title-only counts are the fair basis for comparing periods."
+      - name: is_removed_at_capture
+        description: "See stg_reddit__posts: removed or held when first captured; from late May 2026 this mostly means held for review."
+      - name: is_removed_later
+        description: "See stg_reddit__posts: removed after capture; right-censored for recent months."
+
+  - name: mart_tool_mentions_by_month
+    description: "One row per (month, tool): how many posts mentioned the tool and what share of that month's posts that is. Counts removed posts too."
+    columns:
+      - name: month
+        description: "First day of the month (UTC)."
+        tests: [not_null]
+      - name: tool
+        description: "Tool from the tools seed."
+        tests: [not_null]
+      - name: posts_mentioning
+        description: "Posts that month whose title or body mentions the tool."
+      - name: posts_mentioning_in_title
+        description: "Posts that month whose title mentions the tool."
+      - name: posts_in_month
+        description: "All posts that month, including removed ones."
+      - name: share_pct
+        description: "posts_mentioning / posts_in_month × 100. Biased low in months with many removed posts, which have no body to search."
+      - name: title_share_pct
+        description: "posts_mentioning_in_title / posts_in_month × 100. Use this to compare periods."
+
+  - name: fct_posts
+    description: "One row per post with engagement, removal status and AI-mention flags. The author is left out; this table carries no usernames."
+    columns:
+      - name: post_id
+        description: "Primary key — Reddit's base36 post id."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('stg_reddit__posts')
+                field: post_id
+      - name: tools_mentioned
+        description: "How many tools from the tools seed the post mentions (title or body)."
+      - name: mentions_ai
+        description: "True if the title or body mentions any ai-category tool."
+      - name: mentions_ai_in_title
+        description: "True if the title mentions any ai-category tool; use this for trends over time."
+
+  - name: mart_ai_share_by_flair_month
+    description: "One row per (month, flair): how many posts had an AI tool in the title."
+    columns:
+      - name: month
+        description: "First day of the month (UTC)."
+        tests: [not_null]
+      - name: flair
+        description: "Post flair; 'No flair' when the post has none."
+        tests: [not_null]
+      - name: posts
+        description: "All posts that month with this flair, including removed ones."
+      - name: ai_posts_in_title
+        description: "Posts whose title mentions an ai-category tool."
+      - name: ai_title_share_pct
+        description: "ai_posts_in_title / posts × 100."

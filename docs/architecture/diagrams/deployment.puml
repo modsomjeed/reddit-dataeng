@@ -1,0 +1,60 @@
+@startuml deployment
+title Physical view — Deployment diagram (local Docker Compose)
+skinparam shadowing false
+
+node "Developer laptop (macOS)" as laptop {
+  artifact "Browser" as browser
+  artifact "scripts/*.py, dbt\n(uv, Python 3.12)" as hostcli
+
+  node "Docker Engine — compose project: reddit-submission" as docker {
+    node "clickhouse\n<<container>>" as ch {
+      component "ClickHouse server 26.x\n(users: default, dashboard)" as chs
+    }
+    node "rustfs\n<<container>>" as rustfs {
+      component "RustFS 1.0.0\n(S3 API + console)" as rfs
+    }
+    node "airflow-apiserver\n<<container>>" as api {
+      component "Airflow 3.3.2 API + UI" as apis
+    }
+    node "airflow-scheduler\n<<container>>" as sched {
+      component "Scheduler + LocalExecutor\n(runs BashOperator tasks, dbt venv)" as scheds
+    }
+    node "airflow-dag-processor\n<<container>>" as dagp {
+      component "DAG processor" as dagps
+    }
+    node "dashboard\n<<container>>" as dash {
+      component "Streamlit dashboard\n(ClickHouse user: dashboard, role analyst)" as dashs
+    }
+    node "airflow-postgres\n<<container>>" as pg {
+      database "Postgres 16\n(Airflow metadata)" as pgdb
+    }
+    database "clickhouse-data" as vch
+    database "rustfs-data" as vrfs
+    database "postgres-data" as vpg
+    database "airflow-logs" as vlogs
+  }
+}
+
+cloud "Internet" {
+  node "arctic-shift.photon-reddit.com" as arctic
+}
+
+chs -- vch
+rfs -- vrfs
+pgdb -- vpg
+scheds -- vlogs
+
+browser --> apis : "HTTP 127.0.0.1:8080"
+browser --> dashs : "HTTP 127.0.0.1:8501"
+dashs --> chs : "HTTP clickhouse:8123 (marts only)"
+browser --> rfs : "HTTP 127.0.0.1:9001 (console)"
+hostcli --> chs : "HTTP 127.0.0.1:8123"
+hostcli --> rfs : "S3 127.0.0.1:9002"
+scheds --> arctic : "HTTPS"
+scheds --> rfs : "S3 rustfs:9000"
+scheds --> chs : "HTTP clickhouse:8123"
+chs --> rfs : "s3() rustfs:9000"
+scheds --> pgdb : "SQL"
+apis --> pgdb : "SQL"
+dagps --> pgdb : "SQL"
+@enduml

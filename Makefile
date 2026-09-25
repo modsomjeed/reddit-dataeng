@@ -1,60 +1,54 @@
-.PHONY: help build up down init deps trigger dbt-run dbt-test dbt-freshness dbt-docs logs clean
+DIAGRAMS_DIR := docs/architecture/diagrams
+DBT_DIR      := dbt/reddit
+DBT          := cd $(DBT_DIR) && uv run --env-file ../../.env dbt
+START        ?= 2024-09-25
+END          ?= 2026-09-24
 
-# ClickHouse credentials every dbt command needs (consumed by dbt/profiles.yml).
-# Single-quoted in the recipe, so $$VAR is expanded by the container shell.
-DBT_ENV := DBT_CLICKHOUSE_HOST=$$CLICKHOUSE_HOST DBT_CLICKHOUSE_PORT=$$CLICKHOUSE_HTTP_PORT \
- DBT_CLICKHOUSE_USER=$$CLICKHOUSE_USER DBT_CLICKHOUSE_PASSWORD=$$CLICKHOUSE_PASSWORD \
- DBT_CLICKHOUSE_SCHEMA=$$CLICKHOUSE_DB
+.DEFAULT_GOAL := help
+.PHONY: help setup up down ps logs backfill load dbt-build dbt-docs bootstrap airflow-test diagrams
 
-define dbt
-docker compose exec airflow-scheduler bash -lc 'cd /opt/dbt && $(DBT_ENV) dbt $(1) --profiles-dir /opt/dbt'
-endef
+help: ## Show every command and what it does
+	@echo "Usage: make <command> [VAR=value]\n"
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
-help:  ## show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-	 awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
+setup: ## Create .env from .env.example (never overwrites an existing .env)
+	@if [ -f .env ]; then echo ".env already exists, leaving it alone"; \
+	else cp .env.example .env && echo "created .env — set the passwords and PII_HASH_SALT before 'make up'"; fi
 
-build:  ## build the airflow image (with dbt baked in)
-	docker compose build
+up: ## Build images and start every service (ClickHouse, RustFS, Airflow, dashboard)
+	docker compose up -d --build
+	@$(MAKE) --no-print-directory ps
 
-up:  ## start the whole stack
-	docker compose up -d
-	@echo "Airflow  -> http://localhost:8080  (admin/admin)"
-	@echo "MinIO    -> http://localhost:9001  (minio/minio12345)"
-	@echo "ClickHouse HTTP -> http://localhost:8123"
-
-init: up  ## first run: start the stack, wait for airflow, install dbt packages
-	@echo "waiting for airflow-scheduler ..."
-	@until docker compose exec -T airflow-scheduler airflow version >/dev/null 2>&1; do sleep 3; done
-	@$(MAKE) deps
-
-deps:  ## install dbt packages (dbt_utils)
-	docker compose exec airflow-scheduler bash -lc 'cd /opt/dbt && dbt deps'
-
-down:  ## stop the stack (keep volumes)
+down: ## Stop every service (data volumes are kept)
 	docker compose down
 
-trigger:  ## manually run the ELT DAG once
-	docker compose exec airflow-scheduler airflow dags trigger hn_elt
+ps: ## Show service status and URLs
+	@docker compose ps --format 'table {{.Name}}\t{{.Status}}'
+	@echo "\n  Dashboard       http://localhost:8501"
+	@echo "  Airflow         http://localhost:8080  (airflow / airflow)"
+	@echo "  RustFS console  http://localhost:9001/rustfs/console/"
 
-dbt-run:  ## build staging + marts
-	$(call dbt,run)
+logs: ## Follow logs, e.g. make logs SERVICE=airflow-scheduler
+	docker compose logs -f $(SERVICE)
 
-dbt-test:  ## data-quality gate: not_null / unique / accepted_range
-	$(call dbt,test)
+backfill: ## Extract posts from Arctic Shift to RustFS for START..END (skips days already there)
+	uv run scripts/extract_reddit.py --start $(START) --end $(END)
 
-dbt-freshness:  ## warn when raw_stories is older than 26h
-	$(call dbt,source freshness)
+load: ## Load every raw file from RustFS into ClickHouse (safe to rerun)
+	uv run scripts/load_clickhouse.py
 
-dbt-docs:  ## generate the lineage graph into dbt/target/
-	$(call dbt,docs generate)
+dbt-build: ## Build and test all dbt models
+	$(DBT) build
 
-docs-gen:  ## regenerate docs/lineage.md + docs/data-dictionary.md from dbt artifacts
-	$(MAKE) dbt-docs
-	python3 scripts/generate_docs.py
+dbt-docs: ## Generate dbt docs and serve them on http://localhost:8081
+	$(DBT) docs generate
+	$(DBT) docs serve --port 8081
 
-logs:  ## tail scheduler logs
-	docker compose logs -f airflow-scheduler
+bootstrap: setup up backfill load dbt-build ## First run: setup, up, backfill, load and dbt-build in one go
 
-clean:  ## stop and DELETE all volumes (fresh start)
-	docker compose down -v
+airflow-test: ## Run the whole reddit_daily DAG once for DAY, e.g. make airflow-test DAY=2026-09-24
+	@test -n "$(DAY)" || (echo "set DAY=YYYY-MM-DD" && exit 1)
+	docker exec airflow-scheduler airflow dags test reddit_daily $(DAY)
+
+diagrams: ## Render every PlantUML diagram to SVG
+	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data plantuml/plantuml:latest -tsvg "/data/*.puml"

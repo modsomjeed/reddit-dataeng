@@ -1,0 +1,11 @@
+reddit:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      schema: reddit_analytics
+      host: "{{ env_var('CLICKHOUSE_HOST', 'localhost') }}"
+      port: "{{ env_var('CLICKHOUSE_HTTP_PORT') | int }}"
+      user: "{{ env_var('CLICKHOUSE_USER') }}"
+      password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
+      secure: False

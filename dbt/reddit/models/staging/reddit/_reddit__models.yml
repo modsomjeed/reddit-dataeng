@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_reddit__posts
+    description: "One row per r/dataengineering post, cleaned 1:1 from raw reddit.posts."
+    columns:
+      - name: post_id
+        description: "Primary key — Reddit's base36 post id."
+        tests: [not_null, unique]
+      - name: author_id
+        description: "Salted SHA-256 of the poster's username (PII_HASH_SALT); null for deleted accounts. The username itself stays in the raw layer only."
+        meta:
+          pii: pseudonymised
+      - name: title
+        description: "Post title."
+      - name: body
+        description: "Post text; null for link posts and for removed or deleted text."
+      - name: flair
+        description: "Post flair chosen by the poster (Discussion, Help, Career, ...)."
+      - name: score
+        description: "Upvotes minus downvotes as last re-checked by the archive (usually about 36 hours after posting); not live."
+      - name: num_comments
+        description: "Comment count as last re-checked by the archive (usually about 36 hours after posting); not live."
+      - name: removal_reason
+        description: "Who had removed the post when the archive first captured it, seconds after posting; null if it was up then."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['automod_filtered', 'reddit', 'moderator', 'deleted', 'content_takedown']
+      - name: is_removed_at_capture
+        description: >
+          True if the post was removed or held when first captured. From late May 2026 almost every
+          post is flagged (the subreddit appears to hold posts for review), so from then on this means
+          "held for review", not "never shown".
+      - name: later_removal_type
+        description: "How the post was removed after first capture (moderator, deleted, automod_filtered, reddit), from the archive's re-checks; null if no later removal was seen."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['automod_filtered', 'reddit', 'moderator', 'deleted']
+      - name: is_removed_later
+        description: >
+          True if the post was up at capture but removed later. Right-censored: recent posts have had
+          less time to be re-checked, so later removals are undercounted for the newest months.
+      - name: posted_at
+        description: "Time the post was created (UTC)."
+        tests: [not_null]
+      - name: retrieved_at
+        description: "Time Arctic Shift captured the post (UTC); score and num_comments are as of this time."

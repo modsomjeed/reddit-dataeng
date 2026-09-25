@@ -1,0 +1,58 @@
+@startuml development-packages
+title Development view — Repository structure and dependencies
+skinparam shadowing false
+skinparam packageStyle folder
+
+package "reddit-dataeng/" {
+  package "scripts/" as scripts {
+    artifact "extract_reddit.py" as ex
+    artifact "load_clickhouse.py" as ld
+    artifact "settings.py" as st
+    artifact "create_tables.sql" as ddl
+    artifact "create_users.sh" as users
+  }
+  package "airflow/" as af {
+    artifact "Dockerfile\n(apache/airflow + dbt venv)" as afd
+    package "dags/" {
+      artifact "reddit_daily.py" as dag
+    }
+  }
+  package "dbt/  (uv project)" as dbtproj {
+    package "reddit/" {
+      artifact "dbt_project.yml\nprofiles.yml" as dbtcfg
+      folder "models/staging/reddit/" as stg
+      folder "models/mart/" as mart
+      folder "seeds/" as seeds
+      folder "tests/" as tests
+    }
+  }
+  package "dashboard/  (uv project)" as dashpkg {
+    artifact "app.py\n(Streamlit + Altair)" as app
+    artifact "Dockerfile" as dashd
+  }
+  package "docs/" as docs {
+    folder "architecture/diagrams/  (*.puml → *.svg)" as diag
+    artifact "governance.md" as gov
+    folder "dashboard/  (story.md)" as story
+  }
+  artifact "docker-compose.yml" as compose
+  artifact "pyproject.toml\n(boto3)" as pyproj
+  artifact ".env.example" as envex
+}
+
+ex ..> st : imports
+ld ..> st : imports
+dag ..> ex : "runs (BashOperator)"
+dag ..> ld : "runs (BashOperator)"
+dag ..> dbtcfg : "dbt build"
+mart ..> stg : "ref()"
+mart ..> seeds : "ref()"
+tests ..> mart : "ref()"
+compose ..> afd : builds
+compose ..> ddl : "mounts as ClickHouse init script"
+compose ..> users : "mounts as ClickHouse init script"
+compose ..> dashd : builds
+app ..> mart : "reads (analyst role)"
+compose ..> dag : mounts
+compose ..> envex : "reads .env (copy of)"
+@enduml

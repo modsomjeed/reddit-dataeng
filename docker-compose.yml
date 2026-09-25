@@ -1,145 +1,155 @@
-# ============================================================
-#  hn-dataeng-pipeline ― local data stack
-#  Airflow (LocalExecutor) + Postgres + MinIO + ClickHouse
-#  dbt runs INSIDE the Airflow image (installed in airflow/Dockerfile)
-# ============================================================
+name: reddit-submission
+
 x-airflow-common: &airflow-common
-  build:
-    context: ./airflow
-    dockerfile: Dockerfile
+  build: ./airflow
+  image: reddit-submission-airflow:3.3.2
   env_file: .env
-  environment: &airflow-env
+  environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
-    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
-    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
-    PYTHONPATH: /opt/airflow/dags
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    AIRFLOW__API_AUTH__JWT_SECRET: local-dev-jwt-secret
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # tasks reach ClickHouse and RustFS over the compose network, not the host ports
+    CLICKHOUSE_HOST: clickhouse
+    CLICKHOUSE_HTTP_PORT: 8123
+    S3_ENDPOINT: http://rustfs:9000
   volumes:
     - ./airflow/dags:/opt/airflow/dags
-    - ./airflow/logs:/opt/airflow/logs
-    - ./dbt:/opt/dbt
-    - ./secrets:/opt/airflow/secrets
-  depends_on: &airflow-deps
+    - airflow-logs:/opt/airflow/logs
+    - ./scripts:/opt/project/scripts:ro
+    - ./dbt/reddit:/opt/project/dbt/reddit
+  user: "50000:0"
+  depends_on: &airflow-common-depends-on
     postgres:
+      condition: service_healthy
+    clickhouse:
+      condition: service_healthy
+    rustfs:
       condition: service_healthy
 
 services:
-  # ---------- Airflow metadata DB ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:${CHVER:-latest}
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_DASHBOARD_PASSWORD: ${CLICKHOUSE_DASHBOARD_PASSWORD}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+      - ./scripts/create_users.sh:/docker-entrypoint-initdb.d/create_users.sh:ro
+    ports:
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT}:8123"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: rustfs
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: 'true'
+    volumes:
+      - rustfs-data:/data
+    ports:
+      - "127.0.0.1:${RUSTFS_API_PORT}:9000"
+      - "127.0.0.1:${RUSTFS_CONSOLE_PORT}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    build: ./dashboard
+    image: reddit-submission-dashboard
+    container_name: dashboard
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HTTP_PORT: 8123
+      # read-only user: the analyst role can SELECT mart tables and nothing else
+      CLICKHOUSE_USER: dashboard
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_DASHBOARD_PASSWORD}
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
+    container_name: airflow-postgres
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ---------- MinIO object storage (data lake / bronze) ----------
-  minio:
-    # MinIO ถอด image ออกจาก Docker Hub แล้ว (pull access denied) — ใช้ registry
-    # ทางการที่ quay.io แทน. ต้องใช้ :latest เพราะ tag RELEASE.* บน quay
-    # build ไว้เฉพาะ amd64 มีแต่ latest ที่เป็น multi-arch (รองรับ Apple Silicon)
-    image: quay.io/minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      # host 9000 อาจถูกโปรเจกต์อื่นจองอยู่ (เช่น SonarQube) จึง map เป็น 9010
-      # ไม่กระทบ container อื่นที่คุยกับ MinIO เพราะใช้ http://minio:9000 ในเน็ตเวิร์ก docker
-      - "9010:9000"   # S3 API (host 9010 -> container 9000)
-      - "9001:9001"   # web console
-    volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       retries: 5
-    restart: unless-stopped
 
-  # create the bucket on startup
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-    depends_on:
-      minio:
-        condition: service_started
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
-      /usr/bin/mc mb --ignore-existing local/${MINIO_BUCKET};
-      echo 'MinIO bucket ready';
-      "
-
-  # ---------- ClickHouse warehouse ----------
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.8
-    environment:
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    ports:
-      - "8123:8123"   # HTTP interface (dbt / Looker connector)
-      - "9002:9000"   # native TCP (host:9002 → container:9000, avoids MinIO clash)
-    ulimits:
-      nofile: { soft: 262144, hard: 262144 }
-    volumes:
-      - ch-data:/var/lib/clickhouse
-      - ./clickhouse/init:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
-      interval: 10s
-      retries: 5
-    restart: unless-stopped
-
-  # ---------- Airflow init (db migrate + create admin user) ----------
   airflow-init:
     <<: *airflow-common
+    container_name: airflow-init
     entrypoint: /bin/bash
-    command:
-      - -c
-      - |
-        airflow db migrate
-        airflow users create \
-          --username "$${_AIRFLOW_WWW_USER_USERNAME:-admin}" \
-          --password "$${_AIRFLOW_WWW_USER_PASSWORD:-admin}" \
-          --firstname admin --lastname user --role Admin --email admin@example.com || true
-    restart: on-failure
+    command: ["-c", "/entrypoint airflow version"]
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
 
-  airflow-webserver:
+  airflow-apiserver:
     <<: *airflow-common
-    command: webserver
+    container_name: airflow-apiserver
+    command: api-server
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     depends_on:
-      <<: *airflow-deps
+      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 15s
-      retries: 5
-    restart: unless-stopped
 
   airflow-scheduler:
     <<: *airflow-common
+    container_name: airflow-scheduler
     command: scheduler
     depends_on:
-      <<: *airflow-deps
+      <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-    restart: unless-stopped
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: airflow-dag-processor
+    command: dag-processor
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
 
 volumes:
-  pg-data:
-  minio-data:
-  ch-data:
+  clickhouse-data:
+  rustfs-data:
+  postgres-data:
+  airflow-logs:
