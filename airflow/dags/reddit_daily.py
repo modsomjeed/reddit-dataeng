@@ -44,6 +44,15 @@ def reddit_daily():
         bash_command=f"python {PROJECT}/scripts/load_clickhouse.py --start {{{{ ds }}}} --end {{{{ ds }}}}",
     )
 
+    # fail loudly if the archive has stopped returning new posts, before rebuilding on stale data
+    dbt_source_freshness = BashOperator(
+        task_id="dbt_source_freshness",
+        bash_command=(
+            f"cd {PROJECT}/dbt/reddit && {DBT} source freshness --profiles-dir . "
+            "--target-path /tmp/dbt/target --log-path /tmp/dbt/logs"
+        ),
+    )
+
     dbt_build = BashOperator(
         task_id="dbt_build",
         bash_command=(
@@ -52,7 +61,7 @@ def reddit_daily():
         ),
     )
 
-    extract_posts >> load_clickhouse >> dbt_build
+    extract_posts >> load_clickhouse >> dbt_source_freshness >> dbt_build
 
 
 reddit_daily()
