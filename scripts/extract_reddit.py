@@ -58,9 +58,9 @@ def fetch_day(subreddit: str, day: date) -> list[dict]:
         time.sleep(1)
 
 
-def extract_day(subreddit: str, day: date) -> None:
+def extract_day(subreddit: str, day: date, force: bool) -> None:
     out_path = RAW_DIR / f"{day.isoformat()}.json"
-    if out_path.exists():
+    if out_path.exists() and not force:
         print(f"{day} already extracted, skipping")
         return
 
@@ -78,11 +78,12 @@ def main() -> None:
     parser.add_argument("--subreddit", default="dataengineering")
     parser.add_argument("--start", type=date.fromisoformat, required=True, help="YYYY-MM-DD (UTC)")
     parser.add_argument("--end", type=date.fromisoformat, help="YYYY-MM-DD (UTC), inclusive; defaults to --start")
+    parser.add_argument("--force", action="store_true", help="re-extract days that already have a file")
     args = parser.parse_args()
 
     day = args.start
     while day <= (args.end or args.start):
-        extract_day(args.subreddit, day)
+        extract_day(args.subreddit, day, args.force)
         day += timedelta(days=1)
 
 
