@@ -7,7 +7,8 @@ with posts as (
         lower(concat(title, ' ', coalesce(body, ''))) as post_text,
         posted_at,
         flair,
-        is_removed,
+        is_removed_at_capture,
+        is_removed_later,
         score,
         num_comments
     from {{ ref('stg_reddit__posts') }}
@@ -40,7 +41,8 @@ select
     match(match_title, tool_regex) as is_in_title,
     posted_at,
     flair,
-    is_removed,
+    is_removed_at_capture,
+    is_removed_later,
     score,
     num_comments
 from post_tools

@@ -26,8 +26,10 @@ models:
         description: "Time the post was created (UTC)."
       - name: is_in_title
         description: "True if the mention is in the title. Removed posts have no body, so title-only counts are the fair basis for comparing periods."
-      - name: is_removed
-        description: "True if the post was removed; kept so trends can include or exclude removed posts."
+      - name: is_removed_at_capture
+        description: "See stg_reddit__posts: removed or held when first captured; from late May 2026 this mostly means held for review."
+      - name: is_removed_later
+        description: "See stg_reddit__posts: removed after capture; right-censored for recent months."
 
   - name: mart_tool_mentions_by_month
     description: "One row per (month, tool): how many posts mentioned the tool and what share of that month's posts that is. Counts removed posts too."

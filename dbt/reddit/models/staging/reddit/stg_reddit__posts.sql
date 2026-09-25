@@ -25,8 +25,12 @@ select
     score,
     num_comments,
     upvote_ratio,
+    -- removed_by_category is the state when Arctic Shift first captured the post,
+    -- seconds after posting; removals after that only show up in _meta.removal_type
     removed_by_category as removal_reason,
-    removed_by_category is not null as is_removed,
+    removed_by_category is not null as is_removed_at_capture,
+    nullIf(JSONExtractString(raw, '_meta', 'removal_type'), '') as later_removal_type,
+    removed_by_category is null and later_removal_type is not null as is_removed_later,
     created_utc as posted_at,
     retrieved_on as retrieved_at,
     url,
