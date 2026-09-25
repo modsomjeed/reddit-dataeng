@@ -18,8 +18,11 @@ COLUMNS = [
 
 
 def read_env() -> dict[str, str]:
-    env = {}
-    for line in (ROOT / ".env").read_text().splitlines():
+    # .env is for running on the host; inside Airflow the values come from the environment
+    env = {"CLICKHOUSE_HOST": "localhost"}
+    env_file = ROOT / ".env"
+    lines = env_file.read_text().splitlines() if env_file.exists() else []
+    for line in lines:
         if line.strip() and not line.startswith("#"):
             key, _, value = line.partition("=")
             env[key.strip()] = value.strip()
@@ -28,7 +31,7 @@ def read_env() -> dict[str, str]:
 
 def insert(env: dict[str, str], rows: list[dict]) -> None:
     query = "INSERT INTO reddit.posts FORMAT JSONEachRow"
-    url = f"http://localhost:{env['CLICKHOUSE_HTTP_PORT']}/?{urllib.parse.urlencode({'query': query})}"
+    url = f"http://{env['CLICKHOUSE_HOST']}:{env['CLICKHOUSE_HTTP_PORT']}/?{urllib.parse.urlencode({'query': query})}"
     body = "\n".join(json.dumps(row, ensure_ascii=False) for row in rows).encode()
     token = base64.b64encode(f"{env['CLICKHOUSE_USER']}:{env['CLICKHOUSE_PASSWORD']}".encode()).decode()
     request = urllib.request.Request(url, data=body, headers={"Authorization": f"Basic {token}"})
