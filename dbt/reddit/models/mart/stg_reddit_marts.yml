@@ -24,6 +24,8 @@ models:
         description: "Tool category from the tools seed (orchestration, warehouse, ai, ...)."
       - name: posted_at
         description: "Time the post was created (UTC)."
+      - name: is_in_title
+        description: "True if the mention is in the title. Removed posts have no body, so title-only counts are the fair basis for comparing periods."
       - name: is_removed
         description: "True if the post was removed; kept so trends can include or exclude removed posts."
 
@@ -38,7 +40,11 @@ models:
         tests: [not_null]
       - name: posts_mentioning
         description: "Posts that month whose title or body mentions the tool."
+      - name: posts_mentioning_in_title
+        description: "Posts that month whose title mentions the tool."
       - name: posts_in_month
         description: "All posts that month, including removed ones."
       - name: share_pct
-        description: "posts_mentioning / posts_in_month × 100. Use this for trends, since monthly post volume varies."
+        description: "posts_mentioning / posts_in_month × 100. Biased low in months with many removed posts, which have no body to search."
+      - name: title_share_pct
+        description: "posts_mentioning_in_title / posts_in_month × 100. Use this to compare periods."
