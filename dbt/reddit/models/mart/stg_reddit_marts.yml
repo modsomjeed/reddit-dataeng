@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: fct_post_tool_mentions
+    description: "One row per (post, tool) where the post's title or body mentions the tool."
+    columns:
+      - name: post_id
+        description: "FK to the post."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_reddit__posts')
+                field: post_id
+      - name: tool
+        description: "Tool mentioned, from the tools seed."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('tools')
+                field: tool
+      - name: category
+        description: "Tool category from the tools seed (orchestration, warehouse, ai, ...)."
+      - name: posted_at
+        description: "Time the post was created (UTC)."
+      - name: is_removed
+        description: "True if the post was removed; kept so trends can include or exclude removed posts."
