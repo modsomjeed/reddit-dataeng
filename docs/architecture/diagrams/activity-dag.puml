@@ -1,0 +1,33 @@
+@startuml activity-dag
+title Process view — Activity diagram: reddit_daily DAG run
+skinparam shadowing false
+
+start
+:Scheduler fires at 02:00 UTC\n(data interval = previous UTC day, ds);
+if (Another run of reddit_daily active?) then (yes)
+  :Wait (max_active_runs = 1);
+endif
+partition "extract_posts" {
+  repeat
+    :GET Arctic Shift page (100 posts);
+  repeat while (page full?) is (yes)
+  ->no;
+  :Drop duplicate ids;
+  :PUT posts/<ds>.json to RustFS\n(--force overwrites the day);
+}
+partition "load_clickhouse" {
+  :ClickHouse reads posts/<ds>.json via s3();
+  :INSERT into reddit.posts\n(ReplacingMergeTree dedups by id);
+}
+partition "dbt_build" {
+  :Build stg_reddit__posts, facts, marts;
+  :Run data and singular tests;
+}
+stop
+note right
+  Every task retries on failure:
+  up to 3 retries, exponential backoff,
+  max 10 min wait. A task that still fails
+  marks the run failed and skips downstream tasks.
+end note
+@enduml

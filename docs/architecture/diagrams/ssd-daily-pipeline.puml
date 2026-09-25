@@ -1,0 +1,30 @@
+@startuml ssd-daily-pipeline
+title Scenarios — System sequence diagram: UC1 Run daily pipeline
+skinparam shadowing false
+hide footbox
+
+actor "Airflow Scheduler\n<<time>>" as scheduler
+participant "Reddit Data Platform" as system
+actor "Arctic Shift API\n<<external system>>" as arctic
+
+scheduler -> system : runDailyPipeline(ds)
+note right of scheduler
+  fires 02:00 UTC;
+  ds = the previous, complete UTC day
+end note
+
+loop until a page has fewer than 100 posts
+  system -> arctic : searchPosts(subreddit, after, before, limit=100)
+  arctic --> system : posts page
+end
+
+system -> system : store raw day file
+system -> system : load day into warehouse
+system -> system : rebuild and test models
+
+alt a step fails
+  system -> system : retry with exponential backoff (max 3)
+end
+
+system --> scheduler : run state (success / failed)
+@enduml

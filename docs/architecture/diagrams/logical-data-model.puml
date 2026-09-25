@@ -1,0 +1,87 @@
+@startuml logical-data-model
+title Logical view — Data model (ClickHouse, built by dbt)
+skinparam shadowing false
+hide circle
+hide methods
+
+package "reddit (raw)" {
+  entity "posts" as raw {
+    * id : String
+    --
+    title, selftext, author, link_flair_text
+    score, num_comments, upvote_ratio
+    removed_by_category
+    created_utc, retrieved_on
+    raw : String (full JSON)
+    _loaded_at
+    ..
+    ReplacingMergeTree(_loaded_at), ORDER BY id
+  }
+}
+
+package "reddit_analytics — staging" {
+  entity "stg_reddit__posts\n<<view>>" as stg {
+    * post_id
+    --
+    author, title, body, flair
+    score, num_comments, upvote_ratio
+    removal_reason, is_removed
+    posted_at, retrieved_at
+  }
+}
+
+package "reddit_analytics — seeds" {
+  entity "tools\n<<seed>>" as tools {
+    * tool
+    --
+    category
+    pattern (regex)
+    exclude_pattern (regex)
+  }
+}
+
+package "reddit_analytics — mart" {
+  entity "fct_post_tool_mentions" as fptm {
+    * post_id
+    * tool
+    --
+    category, is_in_title
+    posted_at, flair, is_removed
+    score, num_comments
+  }
+  entity "fct_posts" as fp {
+    * post_id
+    --
+    posted_at, flair, is_removed
+    score, num_comments, upvote_ratio
+    tools_mentioned
+    mentions_ai, mentions_ai_in_title
+    (no author)
+  }
+  entity "mart_tool_mentions_by_month" as mtm {
+    * month
+    * tool
+    --
+    category
+    posts_mentioning, posts_mentioning_in_title
+    posts_in_month
+    share_pct, title_share_pct
+  }
+  entity "mart_ai_share_by_flair_month" as mai {
+    * month
+    * flair
+    --
+    posts, ai_posts_in_title
+    ai_title_share_pct
+  }
+}
+
+raw ||..|| stg : "FINAL, rename, clean"
+stg ||--o{ fptm : "post_id"
+tools ||--o{ fptm : "tool"
+stg ||--|| fp : "post_id"
+fptm }o..|| fp : "AI flags"
+fptm }o..|| mtm : "aggregated by month"
+tools ||..o{ mtm : "every month × tool"
+fp }o..|| mai : "aggregated by month, flair"
+@enduml
