@@ -3,4 +3,6 @@ name = "reddit-dataeng"
 version = "0.1.0"
 description = "End-to-end data project on r/dataengineering"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "boto3>=1.43.102",
+]

@@ -1,4 +1,4 @@
-"""Pull subreddit posts from the Arctic Shift archive into data/raw, one file per day."""
+"""Pull subreddit posts from the Arctic Shift archive into the S3 raw bucket, one file per day."""
 
 import argparse
 import json
@@ -8,12 +8,16 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
+
+import boto3
+from botocore.exceptions import ClientError
+
+from settings import read_env
 
 API_URL = "https://arctic-shift.photon-reddit.com/api/posts/search"
 PAGE_SIZE = 100
 MAX_ATTEMPTS = 5
-RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw" / "posts"
+RAW_PREFIX = "posts"
 
 
 def fetch_page(subreddit: str, after: int, before: int) -> list[dict]:
@@ -58,19 +62,44 @@ def fetch_day(subreddit: str, day: date) -> list[dict]:
         time.sleep(1)
 
 
-def extract_day(subreddit: str, day: date, force: bool) -> None:
-    out_path = RAW_DIR / f"{day.isoformat()}.json"
-    if out_path.exists() and not force:
-        print(f"{day} already extracted, skipping")
+def s3_client(env: dict[str, str]):
+    return boto3.client(
+        "s3",
+        endpoint_url=env["S3_ENDPOINT"],
+        aws_access_key_id=env["RUSTFS_ACCESS_KEY"],
+        aws_secret_access_key=env["RUSTFS_SECRET_KEY"],
+        region_name="us-east-1",
+    )
+
+
+def ensure_bucket(s3, bucket: str) -> None:
+    try:
+        s3.head_bucket(Bucket=bucket)
+    except ClientError:
+        s3.create_bucket(Bucket=bucket)
+
+
+def object_exists(s3, bucket: str, key: str) -> bool:
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError:
+        return False
+
+
+def extract_day(s3, bucket: str, subreddit: str, day: date, force: bool) -> None:
+    key = f"{RAW_PREFIX}/{day.isoformat()}.json"
+    if not force and object_exists(s3, bucket, key):
+        print(f"{day} already extracted, skipping", flush=True)
         return
 
     posts = fetch_day(subreddit, day)
     # A page boundary can land inside one second, so drop any post seen twice.
     posts = list({post["id"]: post for post in posts}.values())
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(posts, ensure_ascii=False, indent=2))
-    print(f"{day}: {len(posts)} posts → {out_path.name}")
+    body = json.dumps(posts, ensure_ascii=False).encode()
+    s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
+    print(f"{day}: {len(posts)} posts → s3://{bucket}/{key}", flush=True)
 
 
 def main() -> None:
@@ -81,9 +110,13 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="re-extract days that already have a file")
     args = parser.parse_args()
 
+    env = read_env()
+    s3 = s3_client(env)
+    ensure_bucket(s3, env["S3_BUCKET"])
+
     day = args.start
     while day <= (args.end or args.start):
-        extract_day(args.subreddit, day, args.force)
+        extract_day(s3, env["S3_BUCKET"], args.subreddit, day, args.force)
         day += timedelta(days=1)
 
 
