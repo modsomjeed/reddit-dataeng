@@ -3,7 +3,7 @@ version: 2
 
 sources:
   - name: reddit
-    database: reddit
+    schema: reddit
     description: "Raw r/dataengineering data from the Arctic Shift archive, loaded by scripts/load_clickhouse.py."
     tables:
       - name: posts
