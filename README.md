@@ -19,22 +19,70 @@ Arctic Shift API → RustFS (raw JSON) → ClickHouse (raw) → dbt (staging →
 
 ## Getting started
 
-    cp .env.example .env          # then set the passwords and PII_HASH_SALT
-    docker compose up -d --build
+### Prerequisites
 
-| Service | URL |
+- [Docker](https://docs.docker.com/get-docker/) with Compose (give it at least 4 GB of memory)
+- [uv](https://docs.astral.sh/uv/) for the Python scripts and dbt
+- `make`
+
+### Step 1 — Get the code
+
+    git clone https://github.com/modsomjeed/reddit-dataeng.git
+    cd reddit-dataeng
+    git checkout submission
+
+### Step 2 — Create your `.env`
+
+    make setup
+
+This copies `.env.example` to `.env`. Open `.env` and replace every `change-me` value
+(ClickHouse, the read-only dashboard user, RustFS, and `PII_HASH_SALT`).
+
+### Step 3 — Start the services
+
+    make up
+
+This builds the Airflow and dashboard images and starts ClickHouse, RustFS, Airflow and the
+dashboard. On first start ClickHouse creates the raw table, the `analyst` role and the
+`dashboard` user. `make ps` shows status and URLs at any time.
+
+### Step 4 — Load two years of posts
+
+    make backfill      # Arctic Shift → RustFS, one file per day (first run takes a while)
+    make load          # RustFS → ClickHouse raw table
+    make dbt-build     # staging, facts and marts, plus 27 tests
+
+Every step is safe to rerun: `backfill` skips days already in RustFS, `load` doesn't create
+duplicates, and dbt rebuilds the models. Use `make backfill START=2026-09-01 END=2026-09-24`
+for a shorter range. `make bootstrap` runs steps 2–4 in one go.
+
+### Step 5 — Look at the results
+
+| What | Where |
 |---|---|
 | Dashboard | http://localhost:8501 |
-| Airflow (airflow / airflow) | http://localhost:8080 — unpause `reddit_daily` |
-| RustFS console | http://localhost:9001/rustfs/console/ |
+| Airflow (airflow / airflow) | http://localhost:8080 — unpause `reddit_daily` to run it daily at 02:00 UTC |
+| RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
+| dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
 
-Backfill two years and build the models (needs [uv](https://docs.astral.sh/uv/)):
+### All commands
 
-    uv run scripts/extract_reddit.py --start 2024-09-25 --end 2026-09-24
-    uv run scripts/load_clickhouse.py
-    cd dbt/reddit && uv run --env-file ../../.env dbt build
+Run `make` (or `make help`) to list them:
 
-Render the architecture diagrams: `make diagrams`.
+| Command | What it does |
+|---|---|
+| `make setup` | Create `.env` from `.env.example` (never overwrites an existing `.env`) |
+| `make up` | Build images and start every service, then show status and URLs |
+| `make down` | Stop every service (data volumes are kept) |
+| `make ps` | Show service status and URLs |
+| `make logs SERVICE=…` | Follow logs, e.g. `SERVICE=airflow-scheduler` |
+| `make backfill [START=… END=…]` | Extract posts to RustFS for a date range (default: the full two years) |
+| `make load` | Load every raw file from RustFS into ClickHouse |
+| `make dbt-build` | Build and test all dbt models |
+| `make dbt-docs` | Generate dbt docs and serve them on port 8081 |
+| `make bootstrap` | First run: `setup`, `up`, `backfill`, `load` and `dbt-build` |
+| `make airflow-test DAY=…` | Run the whole `reddit_daily` DAG once for one day |
+| `make diagrams` | Render the PlantUML architecture diagrams to SVG |
 
 ## What's inside
 
