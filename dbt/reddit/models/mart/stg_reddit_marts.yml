@@ -26,3 +26,19 @@ models:
         description: "Time the post was created (UTC)."
       - name: is_removed
         description: "True if the post was removed; kept so trends can include or exclude removed posts."
+
+  - name: mart_tool_mentions_by_month
+    description: "One row per (month, tool): how many posts mentioned the tool and what share of that month's posts that is. Counts removed posts too."
+    columns:
+      - name: month
+        description: "First day of the month (UTC)."
+        tests: [not_null]
+      - name: tool
+        description: "Tool from the tools seed."
+        tests: [not_null]
+      - name: posts_mentioning
+        description: "Posts that month whose title or body mentions the tool."
+      - name: posts_in_month
+        description: "All posts that month, including removed ones."
+      - name: share_pct
+        description: "posts_mentioning / posts_in_month × 100. Use this for trends, since monthly post volume varies."
