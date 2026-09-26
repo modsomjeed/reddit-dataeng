@@ -10,13 +10,7 @@ source as (
 
 select
     id as post_id,
-    -- usernames are personal data: keep a salted hash so authors can still be
-    -- counted and grouped, but not looked up; '[deleted]' accounts have no id
-    if(
-        author = '[deleted]',
-        null,
-        lower(hex(SHA256(concat('{{ env_var("PII_HASH_SALT") }}', author))))
-    ) as author_id,
+    {{ pseudonymise_author('author') }} as author_id,
     title,
     if(selftext in ('', '[removed]', '[deleted]'), null, selftext) as body,
     link_flair_text as flair,
