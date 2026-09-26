@@ -17,7 +17,11 @@ from settings import read_env
 API_URL = "https://arctic-shift.photon-reddit.com/api/{kind}/search"
 KINDS = ("posts", "comments")
 PAGE_SIZE = 100
-MAX_ATTEMPTS = 5
+# Arctic Shift rate-limits by answering 422 "Timeout. Maybe slow down a bit", mostly on the
+# heavier comment searches: pace every request and back off for up to ~10 minutes.
+REQUEST_PAUSE_SECONDS = 2
+QUERY_WINDOW_DAYS = 7
+MAX_ATTEMPTS = 8
 
 
 def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]:
@@ -31,16 +35,15 @@ def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]
     url = f"{API_URL.format(kind=kind)}?{urllib.parse.urlencode(params)}"
     request = urllib.request.Request(url, headers={"User-Agent": "reddit-dataeng/0.1"})
 
-    # Arctic Shift sometimes answers a valid query with 422 or 5xx; the same
-    # request usually succeeds a few seconds later.
     for attempt in range(MAX_ATTEMPTS):
+        time.sleep(REQUEST_PAUSE_SECONDS)
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=60) as response:
                 return json.load(response)["data"]
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as error:
             if attempt == MAX_ATTEMPTS - 1:
                 raise
-            wait = 2**attempt + random.random()
+            wait = 5 * 2**attempt + random.random()
             print(f"  {error}, retrying in {wait:.1f}s", flush=True)
             time.sleep(wait)
 
@@ -48,19 +51,21 @@ def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]
 def fetch_day(kind: str, subreddit: str, day: date) -> list[dict]:
     start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
     after = int(start.timestamp())
-    before = int((start + timedelta(days=1)).timestamp())
+    day_end = int((start + timedelta(days=1)).timestamp())
+    # A narrow time window (a few hours) makes the archive's comment search time out,
+    # so query a week-wide window and cut the results at the end of the day.
+    before = day_end + QUERY_WINDOW_DAYS * 86400
 
     items: list[dict] = []
     while True:
         page = fetch_page(kind, subreddit, after, before)
-        items.extend(page)
-        if len(page) < PAGE_SIZE:
+        items.extend(item for item in page if item["created_utc"] < day_end)
+        if len(page) < PAGE_SIZE or page[-1]["created_utc"] >= day_end:
             return items
         # Step back one second so items sharing the last timestamp aren't skipped;
         # the duplicates this re-fetches are dropped in extract_day(). If a whole
         # page shares one second, step past it rather than loop forever.
         after = max(page[-1]["created_utc"] - 1, after + 1)
-        time.sleep(1)
 
 
 def s3_client(env: dict[str, str]):
