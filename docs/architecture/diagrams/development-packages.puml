@@ -23,6 +23,7 @@ package "reddit-dataeng/" {
       folder "models/staging/reddit/" as stg
       folder "models/mart/" as mart
       folder "seeds/" as seeds
+      folder "macros/\n(pseudonymise_author, mentions_tool)" as macros
       folder "tests/" as tests
     }
   }
@@ -47,6 +48,8 @@ dag ..> ld : "runs (BashOperator)"
 dag ..> dbtcfg : "dbt build"
 mart ..> stg : "ref()"
 mart ..> seeds : "ref()"
+mart ..> macros : uses
+stg ..> macros : uses
 tests ..> mart : "ref()"
 compose ..> afd : builds
 compose ..> ddl : "mounts as ClickHouse init script"

@@ -14,8 +14,8 @@ rectangle "Reddit Data Platform" {
   usecase "UC1 Run daily pipeline" as uc1
   usecase "UC2 Backfill a date range" as uc2
   usecase "Process one day" as ucDay
-  usecase "Extract posts for a day" as ucExtract
-  usecase "Load raw posts into warehouse" as ucLoad
+  usecase "Extract posts and comments for a day" as ucExtract
+  usecase "Load raw posts and comments into warehouse" as ucLoad
   usecase "Check source freshness" as ucFresh
   usecase "Build and test dbt models" as ucBuild
   usecase "UC3 Explore tool trends (Q2)" as uc3

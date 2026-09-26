@@ -7,27 +7,36 @@ start
 if (Another run of reddit_daily active?) then (yes)
   :Wait (max_active_runs = 1);
 endif
-partition "extract_posts" {
-  repeat
-    :GET Arctic Shift page (100 posts);
-  repeat while (page full?) is (yes)
-  ->no;
-  :Drop duplicate ids;
-  :PUT posts/<ds>.json to RustFS\n(--force overwrites the day);
-}
-partition "load_clickhouse" {
-  :ClickHouse reads posts/<ds>.json via s3();
-  :INSERT into reddit.posts\n(ReplacingMergeTree dedups by id);
-}
+fork
+  partition "extract_posts → load_posts" {
+    repeat
+      :GET Arctic Shift posts page (100);
+    repeat while (page full?) is (yes)
+    ->no;
+    :Drop duplicate ids;
+    :PUT posts/<ds>.json to RustFS;
+    :INSERT into reddit.posts via s3();
+  }
+fork again
+  partition "extract_comments → load_comments" {
+    repeat
+      :GET Arctic Shift comments page (100)\n(week-wide window, 2 s pause);
+    repeat while (page full and still inside ds?) is (yes)
+    ->no;
+    :Drop duplicate ids and comments after ds;
+    :PUT comments/<ds>.json to RustFS;
+    :INSERT into reddit.comments via s3();
+  }
+end fork
 partition "dbt_source_freshness" {
-  :Age of newest post in reddit.posts;
-  if (older than 72 h?) then (yes)
+  :Age of newest post and newest comment;
+  if (either older than 72 h?) then (yes)
     :Fail run: stale source;
     stop
   endif
 }
 partition "dbt_build" {
-  :Build stg_reddit__posts, facts, marts;
+  :Build staging, facts, marts\n(posts and comments);
   :Run data and singular tests;
   :GRANT SELECT on marts to analyst;
 }
@@ -35,7 +44,8 @@ stop
 note right
   Every task retries on failure:
   up to 3 retries, exponential backoff,
-  max 10 min wait. A task that still fails
-  marks the run failed and skips downstream tasks.
+  max 10 min wait. --force re-extracts the day
+  and ReplacingMergeTree dedups by id, so
+  reruns never duplicate rows.
 end note
 @enduml

@@ -1,6 +1,6 @@
 # Architecture — 4+1 View Model
 
-Reddit posts from r/dataengineering flow through a daily ELT pipeline:
+Reddit posts and comments from r/dataengineering flow through a daily ELT pipeline:
 
 Arctic Shift API → RustFS (raw JSON) → ClickHouse (raw table) → dbt (staging → marts), orchestrated by Airflow.
 
@@ -26,7 +26,8 @@ messages that cross its boundary.
 The data model. Raw posts land in `reddit.posts`; dbt cleans them into
 `stg_reddit__posts`, matches them against the `tools` seed to build
 `fct_post_tool_mentions` (one row per post and tool), and aggregates into monthly
-marts. Staging replaces usernames with a salted hash (`author_id`); `fct_posts` and
+marts. Comments follow the same path into `stg_reddit__comments`,
+`fct_comment_tool_mentions` and a monthly comment mart. Staging replaces usernames with a salted hash (`author_id`); `fct_posts` and
 the marts carry neither, and only the marts are granted to the `analyst` role.
 
 ![Logical data model](diagrams/logical-data-model.svg)
@@ -34,7 +35,7 @@ the marts carry neither, and only the marts are granted to the `analyst` role.
 ## Process view
 
 What happens at runtime during one daily run: which component calls which, and in
-what order. Airflow runs one DAG run at a time; each task retries with exponential
+what order. Posts and comments are extracted and loaded in parallel. Airflow runs one DAG run at a time; each task retries with exponential
 backoff, and a stale source stops the run before dbt rebuilds anything.
 
 ![Communication diagram](diagrams/communication-daily-run.svg)
@@ -67,4 +68,5 @@ dashboard, the RustFS API and console, and ClickHouse are exposed, and only on
 | `ReplacingMergeTree` on the raw table | Reloading a day adds no duplicates; staging reads it with `FINAL`. |
 | `CronDataIntervalTimetable` in Airflow | Airflow 3's plain cron schedule sets `ds` to the run date, so a 02:00 run would extract an unfinished day. |
 | Dashboard user with the `analyst` role | The dashboard can read marts only; raw usernames and staging stay out of reach. See [governance](../governance.md). |
+| Week-wide query windows for the archive | Narrow time windows make Arctic Shift's comment search time out; queries span a week and are cut at the end of the day. |
 | Trends use title-only mentions | Removed posts lose their body, and the removal rate rises from about 11% to 95%, so counting body text would bias later months downwards. |

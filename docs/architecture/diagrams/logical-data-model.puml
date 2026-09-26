@@ -20,7 +20,29 @@ package "reddit (raw)" {
   }
 }
 
+package "reddit (raw) " as rawc {
+  entity "comments" as rawcom {
+    * id : String
+    --
+    link_id, parent_id, body
+    author <<PII>>
+    score, controversiality, is_submitter
+    created_utc, retrieved_on
+    raw : String (full JSON)
+    ..
+    ReplacingMergeTree(_loaded_at), ORDER BY id
+  }
+}
+
 package "reddit_analytics — staging" {
+  entity "stg_reddit__comments\n<<view>>" as stgc {
+    * comment_id
+    --
+    post_id, parent_comment_id, is_top_level
+    author_id (salted hash), is_automoderator
+    body, is_body_removed, later_removal_type
+    score, commented_at
+  }
   entity "stg_reddit__posts\n<<view>>" as stg {
     * post_id
     --
@@ -43,6 +65,21 @@ package "reddit_analytics — seeds" {
 }
 
 package "reddit_analytics — mart  (SELECT granted to analyst)" {
+  entity "fct_comment_tool_mentions" as fctm {
+    * comment_id
+    * tool
+    --
+    post_id, category
+    commented_at, is_top_level, score
+  }
+  entity "mart_comment_tool_mentions_by_month" as mctm {
+    * month
+    * tool
+    --
+    category
+    comments_mentioning, comments_in_month
+    share_pct
+  }
   entity "fct_post_tool_mentions" as fptm {
     * post_id
     * tool
@@ -88,4 +125,9 @@ fptm }o..|| fp : "AI flags"
 fptm }o..|| mtm : "aggregated by month"
 tools ||..o{ mtm : "every month × tool"
 fp }o..|| mai : "aggregated by month, flair"
+rawcom ||..|| stgc : "FINAL, clean, hash author"
+stg ||--o{ stgc : "post_id"
+stgc ||--o{ fctm : "comment_id"
+tools ||--o{ fctm : "tool"
+fctm }o..|| mctm : "aggregated by month"
 @enduml

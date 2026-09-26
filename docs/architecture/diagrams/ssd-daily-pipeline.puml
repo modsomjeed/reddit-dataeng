@@ -13,16 +13,28 @@ note right of scheduler
   ds = the previous, complete UTC day
 end note
 
-loop until a page has fewer than 100 posts
-  system -> arctic : searchPosts(subreddit, after, before, limit=100)
-  arctic --> system : posts page
+par posts
+  loop until a page has fewer than 100 posts
+    system -> arctic : searchPosts(subreddit, after, before = ds + 8 days, limit=100)
+    arctic --> system : posts page
+  end
+else comments
+  loop until a page passes the end of ds
+    system -> arctic : searchComments(subreddit, after, before = ds + 8 days, limit=100)
+    arctic --> system : comments page
+  end
 end
+note right of arctic
+  a narrow before/after window makes the
+  archive time out, so queries span a week
+  and results are cut at the end of ds
+end note
 
-system -> system : store raw day file
-system -> system : load day into warehouse
+system -> system : store raw day files (posts, comments)
+system -> system : load both into the warehouse
 system -> system : check source freshness
 
-alt newest post older than 72 h
+alt newest post or comment older than 72 h
   system --> scheduler : run failed (stale source), models not rebuilt
 end
 

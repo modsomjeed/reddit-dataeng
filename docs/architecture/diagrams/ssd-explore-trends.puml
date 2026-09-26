@@ -6,8 +6,8 @@ hide footbox
 actor "Analyst / DE Lead\n(via dashboard)" as analyst
 participant "Reddit Data Platform" as system
 
-analyst -> system : queryToolTrend(tools, from_month, to_month)
-system --> analyst : monthly posts_mentioning, title_share_pct per tool
+analyst -> system : queryToolTrend(tools, measure = titles | comments)
+system --> analyst : monthly mentions and share per tool
 
 analyst -> system : compareWindows(first_window, last_window)
 system --> analyst : change in title_share_pct per tool

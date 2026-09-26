@@ -4,22 +4,29 @@ skinparam shadowing false
 left to right direction
 
 object ":Airflow Scheduler" as scheduler
-object "extract_posts:BashOperator" as extract
-object "load_clickhouse:BashOperator" as load
+object "extract_posts:BashOperator" as extractp
+object "extract_comments:BashOperator" as extractc
+object "load_posts:BashOperator" as loadp
+object "load_comments:BashOperator" as loadc
 object "dbt_source_freshness:BashOperator" as fresh
 object "dbt_build:BashOperator" as dbt
 object ":Arctic Shift API" as arctic
 object "reddit-raw:RustFS bucket" as bucket
 object ":ClickHouse" as ch
 
-scheduler --> extract : "1: run(ds)"
-extract --> arctic : "1.1*: searchPosts(after, before)"
-extract --> bucket : "1.2: putObject(posts/ds.json)"
-scheduler --> load : "2: run(ds) [1 succeeded]"
-load --> ch : "2.1: INSERT … SELECT FROM s3(posts/ds.json)"
-ch --> bucket : "2.1.1: GET posts/ds.json"
-scheduler --> fresh : "3: run() [2 succeeded]"
-fresh --> ch : "3.1: max(created_utc) of reddit.posts"
+scheduler --> extractp : "1a: run(ds)"
+scheduler --> extractc : "1b: run(ds)"
+extractp --> arctic : "1a.1*: searchPosts(after, before)"
+extractc --> arctic : "1b.1*: searchComments(after, before)"
+extractp --> bucket : "1a.2: putObject(posts/ds.json)"
+extractc --> bucket : "1b.2: putObject(comments/ds.json)"
+scheduler --> loadp : "2a: run(ds) [1a succeeded]"
+scheduler --> loadc : "2b: run(ds) [1b succeeded]"
+loadp --> ch : "2a.1: INSERT … SELECT FROM s3(posts/ds.json)"
+loadc --> ch : "2b.1: INSERT … SELECT FROM s3(comments/ds.json)"
+ch --> bucket : "2a.1.1 / 2b.1.1: GET day files"
+scheduler --> fresh : "3: run() [2a and 2b succeeded]"
+fresh --> ch : "3.1: max(created_utc) of posts and comments"
 scheduler --> dbt : "4: run() [3 succeeded]"
-dbt --> ch : "4.1: build staging, facts, marts\n4.2: run 27 tests\n4.3: GRANT SELECT on marts TO analyst"
+dbt --> ch : "4.1: build staging, facts, marts\n4.2: run 45 tests\n4.3: GRANT SELECT on marts TO analyst"
 @enduml
