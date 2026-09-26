@@ -3,6 +3,7 @@ DBT_DIR      := dbt/reddit
 DBT          := cd $(DBT_DIR) && uv run --env-file ../../.env dbt
 START        ?= 2024-09-25
 END          ?= 2026-09-24
+KIND         ?= posts
 
 .DEFAULT_GOAL := help
 .PHONY: help setup up down ps logs backfill load dbt-build dbt-docs bootstrap airflow-test diagrams
@@ -31,11 +32,11 @@ ps: ## Show service status and URLs
 logs: ## Follow logs, e.g. make logs SERVICE=airflow-scheduler
 	docker compose logs -f $(SERVICE)
 
-backfill: ## Extract posts from Arctic Shift to RustFS for START..END (skips days already there)
-	uv run scripts/extract_reddit.py --start $(START) --end $(END)
+backfill: ## Extract KIND=posts|comments from Arctic Shift to RustFS for START..END (skips days already there)
+	uv run scripts/extract_reddit.py --kind $(KIND) --start $(START) --end $(END)
 
-load: ## Load every raw file from RustFS into ClickHouse (safe to rerun)
-	uv run scripts/load_clickhouse.py
+load: ## Load every raw KIND=posts|comments file from RustFS into ClickHouse (safe to rerun)
+	uv run scripts/load_clickhouse.py --kind $(KIND)
 
 dbt-build: ## Build and test all dbt models
 	$(DBT) build
@@ -44,7 +45,12 @@ dbt-docs: ## Generate dbt docs and serve them on http://localhost:8081
 	$(DBT) docs generate
 	$(DBT) docs serve --port 8081
 
-bootstrap: setup up backfill load dbt-build ## First run: setup, up, backfill, load and dbt-build in one go
+bootstrap: setup up ## First run: setup, up, then backfill and load posts and comments, then dbt-build
+	$(MAKE) backfill KIND=posts
+	$(MAKE) backfill KIND=comments
+	$(MAKE) load KIND=posts
+	$(MAKE) load KIND=comments
+	$(MAKE) dbt-build
 
 airflow-test: ## Run the whole reddit_daily DAG once for DAY, e.g. make airflow-test DAY=2026-09-24
 	@test -n "$(DAY)" || (echo "set DAY=YYYY-MM-DD" && exit 1)
