@@ -1,4 +1,4 @@
-"""Daily r/dataengineering pipeline: extract a day of posts, load them into ClickHouse, rebuild dbt."""
+"""Daily r/dataengineering pipeline: extract a day of posts and comments, load them into ClickHouse, rebuild dbt."""
 
 from datetime import datetime, timedelta
 
@@ -33,16 +33,22 @@ default_args = {
 def reddit_daily():
     # {{ ds }} is the start of the data interval, i.e. the day this run is responsible for.
     # --force re-extracts the day, so rerunning a date refreshes it instead of skipping it.
-    extract_posts = BashOperator(
-        task_id="extract_posts",
-        bash_command=f"python {PROJECT}/scripts/extract_reddit.py --start {{{{ ds }}}} --force",
-    )
-
-    # reddit.posts is a ReplacingMergeTree keyed on post id, so reloading a day adds no duplicates
-    load_clickhouse = BashOperator(
-        task_id="load_clickhouse",
-        bash_command=f"python {PROJECT}/scripts/load_clickhouse.py --start {{{{ ds }}}} --end {{{{ ds }}}}",
-    )
+    # The raw tables are ReplacingMergeTrees keyed on id, so reloading a day adds no duplicates.
+    loads = []
+    for kind in ("posts", "comments"):
+        extract = BashOperator(
+            task_id=f"extract_{kind}",
+            bash_command=f"python {PROJECT}/scripts/extract_reddit.py --kind {kind} --start {{{{ ds }}}} --force",
+        )
+        load = BashOperator(
+            task_id=f"load_{kind}",
+            bash_command=(
+                f"python {PROJECT}/scripts/load_clickhouse.py --kind {kind} "
+                "--start {{ ds }} --end {{ ds }}"
+            ),
+        )
+        extract >> load
+        loads.append(load)
 
     # fail loudly if the archive has stopped returning new posts, before rebuilding on stale data
     dbt_source_freshness = BashOperator(
@@ -61,7 +67,7 @@ def reddit_daily():
         ),
     )
 
-    extract_posts >> load_clickhouse >> dbt_source_freshness >> dbt_build
+    loads >> dbt_source_freshness >> dbt_build
 
 
 reddit_daily()
