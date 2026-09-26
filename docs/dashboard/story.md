@@ -31,4 +31,4 @@ Built with What? So What? Now What?
 - **Situation:** r/dataengineering has about 28,000 posts over 2 years, showing what data engineers are talking about.
 - **Complication:** The hype says AI will replace the existing stack; teams aren't sure whether to stop investing in Spark or Airflow.
 - **Question:** Is the community actually leaving existing tools for AI?
-- **Answer:** No. **Posts with an AI tool in the title went from 4.0% to 11.7% (×2.9)** and spread into Help and Discussion, but no non-AI tool moved more than 0.9 points (Databricks, up), and most stayed within ±0.5 → **invest in AI on top of the existing stack, not instead of it.**
+- **Answer:** No. **Posts with an AI tool in the title went from 4.0% to 11.7% (×2.9)**, and comments that mention AI went from 4.5% to 13.2% (also ×2.9). AI spread into Help and Discussion, but no non-AI tool moved more than 0.9 points (Databricks, up), and most stayed within ±0.5 → **invest in AI on top of the existing stack, not instead of it.**

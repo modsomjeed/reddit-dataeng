@@ -1,12 +1,13 @@
 # Reddit Data Engineering
 
-An end-to-end data project on two years of r/dataengineering posts (Sep 2024 – Sep 2026),
+An end-to-end data project on two years of r/dataengineering posts and comments (Sep 2024 – Sep 2026),
 built step by step following the ODT internal bootcamp.
 
 **Question:** Is AI replacing the data engineering stack?
-**Answer:** No. Posts with an AI tool in the title went from 4.0% to 11.7% (×2.9) and spread
-into Help and Discussion, but no non-AI tool moved more than 0.9 points, so AI is being added on
-top of the existing stack, not replacing it.
+**Answer:** No. Posts with an AI tool in the title went from 4.0% to 11.7% (×2.9), and comments
+that mention AI went from 4.5% to 13.2% (also ×2.9). AI spread into Help and Discussion, but no
+non-AI tool moved more than 0.9 points in titles, so AI is being added on top of the existing
+stack, not replacing it.
 
 ## Stack
 
@@ -45,11 +46,13 @@ This builds the Airflow and dashboard images and starts ClickHouse, RustFS, Airf
 dashboard. On first start ClickHouse creates the raw table, the `analyst` role and the
 `dashboard` user. `make ps` shows status and URLs at any time.
 
-### Step 4 — Load two years of posts
+### Step 4 — Load two years of posts and comments
 
-    make backfill      # Arctic Shift → RustFS, one file per day (first run takes a while)
-    make load          # RustFS → ClickHouse raw table
-    make dbt-build     # staging, facts and marts, plus 27 tests
+    make backfill                  # posts: Arctic Shift → RustFS, one file per day
+    make backfill KIND=comments    # comments: about 250k, the first run takes a few hours
+    make load                      # posts: RustFS → ClickHouse raw table
+    make load KIND=comments        # comments: RustFS → ClickHouse raw table
+    make dbt-build                 # staging, facts and marts, plus 45 tests
 
 Every step is safe to rerun: `backfill` skips days already in RustFS, `load` doesn't create
 duplicates, and dbt rebuilds the models. Use `make backfill START=2026-09-01 END=2026-09-24`
@@ -75,11 +78,11 @@ Run `make` (or `make help`) to list them:
 | `make down` | Stop every service (data volumes are kept) |
 | `make ps` | Show service status and URLs |
 | `make logs SERVICE=…` | Follow logs, e.g. `SERVICE=airflow-scheduler` |
-| `make backfill [START=… END=…]` | Extract posts to RustFS for a date range (default: the full two years) |
-| `make load` | Load every raw file from RustFS into ClickHouse |
+| `make backfill [KIND=… START=… END=…]` | Extract posts (default) or comments to RustFS for a date range (default: the full two years) |
+| `make load [KIND=…]` | Load every raw posts (default) or comments file from RustFS into ClickHouse |
 | `make dbt-build` | Build and test all dbt models |
 | `make dbt-docs` | Generate dbt docs and serve them on port 8081 |
-| `make bootstrap` | First run: `setup`, `up`, `backfill`, `load` and `dbt-build` |
+| `make bootstrap` | First run: `setup`, `up`, backfill and load posts and comments, then `dbt-build` |
 | `make airflow-test DAY=…` | Run the whole `reddit_daily` DAG once for one day |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
 
@@ -89,7 +92,7 @@ Run `make` (or `make help`) to list them:
 |---|---|
 | `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; ClickHouse init scripts |
 | `airflow/` | Custom image (Airflow + dbt) and the `reddit_daily` DAG |
-| `dbt/reddit/` | Staging, facts, marts, the `tools` seed and 27 tests |
+| `dbt/reddit/` | Staging, facts and marts for posts and comments, the `tools` seed, macros and 45 tests |
 | `dashboard/` | Streamlit dashboard for a DE lead |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
 | `docs/dashboard/story.md` | User, empathy map, GAME and SCQA, designed before the dashboard |
@@ -124,13 +127,16 @@ Run `make` (or `make help`) to list them:
   rather than NULL, which silently broke multi-word tools like "Power BI". A test now guards it.
 - **Question the number before telling the story.** Spark looked like it was falling 4 points,
   but removed posts lose their body text; counting titles only, the drop was 0.4 points.
+- **An archive's API has its own limits.** Comment searches timed out whenever the time window
+  was narrow, and only probing different query shapes showed it; widening the window to a week
+  fixed it without losing a single comment.
 - **Definitions are governance.** "Removed" meant two different things in the data, and two
   moderator rule changes explained most of the rise. Writing that down mattered as much as the code.
 
 ### 2. How would you improve it?
 
-- Extract **comments**, to answer questions about response time and what the community
-  recommends.
+- Use the **comments** for more questions: time to first answer on Help posts, the best time to
+  post, and what the community recommends.
 - Replace keyword matching with a better classifier, and measure precision on a labelled sample
   instead of spot checks.
 - **Re-extract older days** after a few weeks to catch later removals (today they are

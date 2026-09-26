@@ -6,16 +6,17 @@ How this project handles personal data, access, freshness and known data-quality
 
 | Layer | Where | Contains | Who can read |
 |---|---|---|---|
-| Raw files | RustFS `reddit-raw/posts/*.json` | Full post JSON, **usernames** | Pipeline only |
-| Raw table | ClickHouse `reddit.posts` | Usernames (`author`, tagged `pii: direct`), full JSON | Pipeline only |
-| Staging | `reddit_analytics.stg_reddit__posts` | `author_id` (salted hash, tagged `pii: pseudonymised`) | Pipeline only |
+| Raw files | RustFS `reddit-raw/posts/*.json`, `reddit-raw/comments/*.json` | Full post and comment JSON, **usernames** | Pipeline only |
+| Raw tables | ClickHouse `reddit.posts`, `reddit.comments` | Usernames (`author`, tagged `pii: direct`), full JSON | Pipeline only |
+| Staging | `reddit_analytics.stg_reddit__posts`, `stg_reddit__comments` | `author_id` (salted hash, tagged `pii: pseudonymised`) | Pipeline only |
 | Marts | `reddit_analytics.fct_*`, `mart_*` | No usernames or author ids | `analyst` role |
 
 ## Personal data
 
 - Reddit usernames are public but still identify people, so they stay in the raw layer.
-- Staging replaces them with `author_id` = SHA-256 of `PII_HASH_SALT` + username. Authors can still
-  be counted and grouped (18,204 distinct before and after hashing) but not looked up.
+- Staging replaces them with `author_id` = SHA-256 of `PII_HASH_SALT` + username (the
+  `pseudonymise_author` macro, shared by posts and comments). Authors can still be counted, grouped
+  and matched across posts and comments, but not looked up.
 - `[deleted]` accounts get a null `author_id`.
 - Limitation: the salt is visible in the staging view's DDL to anyone who can read staging. The
   `analyst` role can't.
@@ -32,10 +33,13 @@ How this project handles personal data, access, freshness and known data-quality
 
 ## Freshness and quality checks
 
-- Source freshness on `reddit.posts.created_utc`: warn after 36 h, error after 72 h. It runs in the
-  DAG before `dbt_build`, so a stalled archive stops the pipeline instead of rebuilding on stale data.
-- 27 dbt tests: keys unique and not null, relationships between facts and staging/seed, accepted
-  values, grain uniqueness, a guard against the multi-word matching bug, and title ≤ total mentions.
+- Source freshness on `created_utc` of both `reddit.posts` and `reddit.comments`: warn after 36 h,
+  error after 72 h. It runs in the DAG before `dbt_build`, so a stalled archive stops the pipeline
+  instead of rebuilding on stale data.
+- 45 dbt tests: keys unique and not null, relationships between facts and staging/seed, accepted
+  values, grain uniqueness, a guard against the multi-word matching bug, title ≤ total mentions,
+  and a guard that a null comment body always means a removed one. The comment → post relationship
+  is a warning: about 900 comments (0.4%) belong to posts made before the extraction window.
 
 ## Known data limitations
 
@@ -57,11 +61,19 @@ The removed share appears to rise from 11% to 95% over two years. Two things dri
 
 Counting either flag, about 41% of posts before Rule 9 were removed in the end, not 19%.
 
+### Comments
+
+- Comments keep their text far more often than posts: only 3.4% are removed or deleted.
+  AutoModerator comments (about 6,000) are excluded from the tool analysis.
+- Comment volume holds at 10–14k a month, then falls after the May 2026 clarification (to 4k in
+  August 2026), consistent with posts being held for review. The AI share of comments in those
+  last months rises to 16–20% on much smaller volumes, so treat it with care.
+
 ### Other limits
 
 - Source is the Arctic Shift archive, not the Reddit API. `score` and `num_comments` are as of the
   archive's re-check about 36 hours after posting, not live.
 - Tool mentions are keyword matches (`seeds/tools.csv`); spot checks found about 90% precision for
   ambiguous words such as *agent*. A mention is not an endorsement.
-- Trends use title-only mentions: removed posts lose their body, and the removal rate changes a lot
-  over time.
+- Post trends use title-only mentions: removed posts lose their body, and the removal rate changes
+  a lot over time. Comment text is the second, independent measure.
