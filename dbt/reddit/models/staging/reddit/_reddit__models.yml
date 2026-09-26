@@ -47,3 +47,48 @@ models:
         tests: [not_null]
       - name: retrieved_at
         description: "Time Arctic Shift captured the post (UTC); score and num_comments are as of this time."
+
+  - name: stg_reddit__comments
+    description: "One row per r/dataengineering comment, cleaned 1:1 from raw reddit.comments."
+    columns:
+      - name: comment_id
+        description: "Primary key — Reddit's base36 comment id."
+        tests: [not_null, unique]
+      - name: post_id
+        description: "The post the comment belongs to (from link_id)."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_reddit__posts')
+                field: post_id
+              # about 0.4% of comments are on posts made before the extraction window
+              config:
+                severity: warn
+      - name: parent_comment_id
+        description: "The comment this one replies to; null for a top-level comment."
+      - name: is_top_level
+        description: "True if the comment replies to the post itself."
+      - name: author_id
+        description: "Salted SHA-256 of the commenter's username (PII_HASH_SALT); null for deleted accounts."
+        meta:
+          pii: pseudonymised
+      - name: is_automoderator
+        description: "True for the subreddit's AutoModerator bot; exclude these when studying people."
+      - name: is_by_post_author
+        description: "True if the commenter also wrote the post."
+      - name: body
+        description: "Comment text; null when the text was removed or deleted."
+      - name: is_body_removed
+        description: "True if the text was removed or deleted by the time the archive captured it."
+      - name: later_removal_type
+        description: "How the comment was removed after capture, from the archive's re-checks; null if no later removal was seen."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['removed', 'deleted', 'removed by reddit']
+      - name: commented_at
+        description: "Time the comment was created (UTC)."
+        tests: [not_null]
+      - name: retrieved_at
+        description: "Time the archive first captured the comment (UTC)."
