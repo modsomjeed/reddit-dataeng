@@ -1,4 +1,4 @@
-"""Pull subreddit posts from the Arctic Shift archive into the S3 raw bucket, one file per day."""
+"""Pull subreddit posts or comments from the Arctic Shift archive into the S3 raw bucket, one file per day."""
 
 import argparse
 import json
@@ -14,13 +14,13 @@ from botocore.exceptions import ClientError
 
 from settings import read_env
 
-API_URL = "https://arctic-shift.photon-reddit.com/api/posts/search"
+API_URL = "https://arctic-shift.photon-reddit.com/api/{kind}/search"
+KINDS = ("posts", "comments")
 PAGE_SIZE = 100
 MAX_ATTEMPTS = 5
-RAW_PREFIX = "posts"
 
 
-def fetch_page(subreddit: str, after: int, before: int) -> list[dict]:
+def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]:
     params = {
         "subreddit": subreddit,
         "after": after,
@@ -28,7 +28,7 @@ def fetch_page(subreddit: str, after: int, before: int) -> list[dict]:
         "limit": PAGE_SIZE,
         "sort": "asc",
     }
-    url = f"{API_URL}?{urllib.parse.urlencode(params)}"
+    url = f"{API_URL.format(kind=kind)}?{urllib.parse.urlencode(params)}"
     request = urllib.request.Request(url, headers={"User-Agent": "reddit-dataeng/0.1"})
 
     # Arctic Shift sometimes answers a valid query with 422 or 5xx; the same
@@ -45,20 +45,21 @@ def fetch_page(subreddit: str, after: int, before: int) -> list[dict]:
             time.sleep(wait)
 
 
-def fetch_day(subreddit: str, day: date) -> list[dict]:
+def fetch_day(kind: str, subreddit: str, day: date) -> list[dict]:
     start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
     after = int(start.timestamp())
     before = int((start + timedelta(days=1)).timestamp())
 
-    posts: list[dict] = []
+    items: list[dict] = []
     while True:
-        page = fetch_page(subreddit, after, before)
-        posts.extend(page)
+        page = fetch_page(kind, subreddit, after, before)
+        items.extend(page)
         if len(page) < PAGE_SIZE:
-            return posts
-        # Step back one second so posts sharing the last timestamp aren't skipped;
-        # the duplicates this re-fetches are dropped in main().
-        after = page[-1]["created_utc"] - 1
+            return items
+        # Step back one second so items sharing the last timestamp aren't skipped;
+        # the duplicates this re-fetches are dropped in extract_day(). If a whole
+        # page shares one second, step past it rather than loop forever.
+        after = max(page[-1]["created_utc"] - 1, after + 1)
         time.sleep(1)
 
 
@@ -87,23 +88,24 @@ def object_exists(s3, bucket: str, key: str) -> bool:
         return False
 
 
-def extract_day(s3, bucket: str, subreddit: str, day: date, force: bool) -> None:
-    key = f"{RAW_PREFIX}/{day.isoformat()}.json"
+def extract_day(s3, bucket: str, kind: str, subreddit: str, day: date, force: bool) -> None:
+    key = f"{kind}/{day.isoformat()}.json"
     if not force and object_exists(s3, bucket, key):
-        print(f"{day} already extracted, skipping", flush=True)
+        print(f"{day} {kind} already extracted, skipping", flush=True)
         return
 
-    posts = fetch_day(subreddit, day)
-    # A page boundary can land inside one second, so drop any post seen twice.
-    posts = list({post["id"]: post for post in posts}.values())
+    items = fetch_day(kind, subreddit, day)
+    # A page boundary can land inside one second, so drop any item seen twice.
+    items = list({item["id"]: item for item in items}.values())
 
-    body = json.dumps(posts, ensure_ascii=False).encode()
+    body = json.dumps(items, ensure_ascii=False).encode()
     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-    print(f"{day}: {len(posts)} posts → s3://{bucket}/{key}", flush=True)
+    print(f"{day}: {len(items)} {kind} → s3://{bucket}/{key}", flush=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--kind", choices=KINDS, default="posts")
     parser.add_argument("--subreddit", default="dataengineering")
     parser.add_argument("--start", type=date.fromisoformat, required=True, help="YYYY-MM-DD (UTC)")
     parser.add_argument("--end", type=date.fromisoformat, help="YYYY-MM-DD (UTC), inclusive; defaults to --start")
@@ -116,7 +118,7 @@ def main() -> None:
 
     day = args.start
     while day <= (args.end or args.start):
-        extract_day(s3, env["S3_BUCKET"], args.subreddit, day, args.force)
+        extract_day(s3, env["S3_BUCKET"], args.kind, args.subreddit, day, args.force)
         day += timedelta(days=1)
 
 
