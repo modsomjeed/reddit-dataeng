@@ -42,6 +42,18 @@ flairs = query("""
     select month, flair, posts, ai_posts_in_title
     from reddit_analytics.mart_ai_share_by_flair_month
 """)
+comment_tools = query("""
+    select month, tool, category, comments_mentioning, comments_in_month, share_pct
+    from reddit_analytics.mart_comment_tool_mentions_by_month
+    order by month
+""")
+# a comment can mention several AI tools, so count distinct comments, not tool rows
+ai_comments = query("""
+    select toStartOfMonth(commented_at) as month, uniqExact(comment_id) as ai_comments
+    from reddit_analytics.fct_comment_tool_mentions
+    where category = 'ai'
+    group by month
+""")
 
 # The first and last months of the data are partial, so compare complete months only.
 months = sorted(tools["month"].unique())[1:-1]
@@ -63,29 +75,57 @@ ai_monthly["ai_share_pct"] = ai_monthly["ai_posts_in_title"] / ai_monthly["posts
 ai_first = share_in(flairs.assign(all="all"), first_window, "all", "ai_posts_in_title", "posts").iloc[0]
 ai_last = share_in(flairs.assign(all="all"), last_window, "all", "ai_posts_in_title", "posts").iloc[0]
 
-change = pd.DataFrame({
-    "first": share_in(tools, first_window, "tool", "posts_mentioning_in_title", "posts_in_month"),
-    "last": share_in(tools, last_window, "tool", "posts_mentioning_in_title", "posts_in_month"),
-})
-change["change_pts"] = change["last"] - change["first"]
-change = change.join(tools.drop_duplicates("tool").set_index("tool")["category"]).reset_index()
-change["group"] = change["category"].map(lambda c: "AI tools" if c == "ai" else "Other tools")
-other_tools = change[change["group"] == "Other tools"]
+comment_totals = comment_tools.drop_duplicates("month")[["month", "comments_in_month"]]
+ai_comment_monthly = comment_totals.merge(ai_comments, on="month", how="left").fillna({"ai_comments": 0})
+ai_comment_monthly["ai_share_pct"] = ai_comment_monthly["ai_comments"] / ai_comment_monthly["comments_in_month"] * 100
+ai_comments_first = share_in(ai_comment_monthly.assign(all="all"), first_window, "all", "ai_comments", "comments_in_month").iloc[0]
+ai_comments_last = share_in(ai_comment_monthly.assign(all="all"), last_window, "all", "ai_comments", "comments_in_month").iloc[0]
+
+# Each measure: the monthly per-tool table and the columns that hold mentions and the total.
+MEASURES = {
+    "Post titles": (tools, "posts_mentioning_in_title", "posts_in_month", "title_share_pct", "% of titles", "Posts"),
+    "Comments": (comment_tools, "comments_mentioning", "comments_in_month", "share_pct", "% of comments", "Comments"),
+}
+
+
+def tool_change(df: pd.DataFrame, hits: str, total: str) -> pd.DataFrame:
+    out = pd.DataFrame({
+        "first": share_in(df, first_window, "tool", hits, total),
+        "last": share_in(df, last_window, "tool", hits, total),
+    })
+    out["change_pts"] = out["last"] - out["first"]
+    out = out.join(df.drop_duplicates("tool").set_index("tool")["category"]).reset_index()
+    out["group"] = out["category"].map(lambda c: "AI tools" if c == "ai" else "Other tools")
+    return out
+
+
+title_change = tool_change(tools, "posts_mentioning_in_title", "posts_in_month")
+other_tools = title_change[title_change["group"] == "Other tools"]
 biggest_other = other_tools.loc[other_tools["change_pts"].abs().idxmax()]
 
 # --- Header and headline numbers -------------------------------------------------
 
 st.title("Is AI replacing the data engineering stack?")
 st.caption(
-    f"r/dataengineering, {int(flairs['posts'].sum()):,} posts · "
-    f"comparing {window_label(first_window)} with {window_label(last_window)} · "
-    "share of post titles that mention a tool"
+    f"r/dataengineering, {int(flairs['posts'].sum()):,} posts and "
+    f"{int(comment_totals['comments_in_month'].sum()):,} comments · "
+    f"comparing {window_label(first_window)} with {window_label(last_window)}"
 )
 
-kpi1, kpi2, kpi3 = st.columns(3)
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 kpi1.metric("Posts that mention AI in the title", f"{ai_last:.1f}%", f"{ai_last - ai_first:+.1f} pts vs {ai_first:.1f}%")
-kpi2.metric("Growth in AI conversation", f"×{ai_last / ai_first:.1f}")
+kpi2.metric(
+    "Comments that mention AI",
+    f"{ai_comments_last:.1f}%",
+    f"{ai_comments_last - ai_comments_first:+.1f} pts vs {ai_comments_first:.1f}%",
+)
 kpi3.metric(
+    "Growth in AI conversation",
+    f"×{ai_comments_last / ai_comments_first:.1f}",
+    f"×{ai_last / ai_first:.1f} in titles",
+    delta_color="off",
+)
+kpi4.metric(
     "Largest move of any non-AI tool",
     f"{biggest_other['change_pts']:+.1f} pts",
     biggest_other["tool"],
@@ -99,33 +139,51 @@ st.markdown(
 
 # --- AI share trend --------------------------------------------------------------
 
-st.subheader("AI share of post titles, by month")
+st.subheader("AI share of the conversation, by month")
+st.caption("Two independent measures agree: post titles and comment text")
+ai_both = pd.concat([
+    ai_monthly.assign(measure="Post titles", mentions=ai_monthly["ai_posts_in_title"], total=ai_monthly["posts"]),
+    ai_comment_monthly.assign(measure="Comments", mentions=ai_comment_monthly["ai_comments"],
+                              total=ai_comment_monthly["comments_in_month"]),
+])[["month", "measure", "ai_share_pct", "mentions", "total"]]
 hover = alt.selection_point(fields=["month"], nearest=True, on="pointerover", empty=False)
-base = alt.Chart(ai_monthly).encode(
+base = alt.Chart(ai_both).encode(
     x=alt.X("month:T", title=None, axis=alt.Axis(format="%b %Y", grid=False)),
-    y=alt.Y("ai_share_pct:Q", title="% of titles", axis=alt.Axis(gridColor="#e1e0d9")),
+    y=alt.Y("ai_share_pct:Q", title="% mentioning AI", axis=alt.Axis(gridColor="#e1e0d9")),
+    color=alt.Color("measure:N", scale=alt.Scale(domain=["Post titles", "Comments"], range=SERIES[:2]),
+                    legend=alt.Legend(title=None, orient="bottom")),
 )
 trend = alt.layer(
-    base.mark_line(color=SERIES[0], strokeWidth=2),
+    base.mark_line(strokeWidth=2),
     base.mark_point(size=80, opacity=0).add_params(hover),
-    base.mark_point(size=64, filled=True, color=SERIES[0]).transform_filter(hover),
+    base.mark_point(size=64, filled=True).transform_filter(hover),
     base.mark_rule(color=MUTED_INK).encode(
         tooltip=[
             alt.Tooltip("month:T", title="Month", format="%b %Y"),
+            alt.Tooltip("measure:N", title="Measure"),
             alt.Tooltip("ai_share_pct:Q", title="AI share %", format=".1f"),
-            alt.Tooltip("ai_posts_in_title:Q", title="AI posts"),
-            alt.Tooltip("posts:Q", title="All posts"),
+            alt.Tooltip("mentions:Q", title="Mentioning AI"),
+            alt.Tooltip("total:Q", title="All"),
         ]
     ).transform_filter(hover),
+    # direct labels at the last point, so the two lines don't rely on colour alone
+    base.mark_text(align="left", dx=6, fontSize=12).encode(
+        text="measure:N", color=alt.value(MUTED_INK)
+    ).transform_window(rank="rank()", sort=[alt.SortField("month", order="descending")], groupby=["measure"])
+    .transform_filter("datum.rank == 1"),
 ).properties(height=280)
 st.altair_chart(trend, use_container_width=True)
 
 # --- Which tools moved -----------------------------------------------------------
 
+measure = st.radio("Measure tool mentions in", list(MEASURES), horizontal=True)
+df, hits, total, share_col, share_title, count_title = MEASURES[measure]
+change = tool_change(df, hits, total)
+
 left, right = st.columns(2)
 
 with left:
-    st.subheader("Change in share of titles, per tool")
+    st.subheader(f"Change in share of {measure.lower()}, per tool")
     st.caption(f"{window_label(last_window)} minus {window_label(first_window)}, percentage points")
     bars = alt.Chart(change).mark_bar(cornerRadiusEnd=4, height=10).encode(
         x=alt.X("change_pts:Q", title="pts", axis=alt.Axis(gridColor="#e1e0d9")),
@@ -184,23 +242,23 @@ with right:
 
 # --- Compare tools over time -----------------------------------------------------
 
-st.subheader("Compare tools over time")
+st.subheader(f"Compare tools over time ({measure.lower()})")
 picked = st.multiselect(
     "Tools (up to 4)", sorted(tools["tool"].unique()), default=DEFAULT_TOOLS, max_selections=4
 )
 if picked:
-    lines = tools[tools["tool"].isin(picked)]
+    lines = df[df["tool"].isin(picked)]
     compare = alt.Chart(lines).mark_line(strokeWidth=2).encode(
         x=alt.X("month:T", title=None, axis=alt.Axis(format="%b %Y", grid=False)),
-        y=alt.Y("title_share_pct:Q", title="% of titles", axis=alt.Axis(gridColor="#e1e0d9")),
+        y=alt.Y(f"{share_col}:Q", title=share_title, axis=alt.Axis(gridColor="#e1e0d9")),
         # colour follows the order tools were picked in, so the legend order matches the picker
         color=alt.Color("tool:N", scale=alt.Scale(domain=picked, range=SERIES[: len(picked)]),
                         legend=alt.Legend(title=None, orient="bottom")),
         tooltip=[
             alt.Tooltip("tool:N", title="Tool"),
             alt.Tooltip("month:T", title="Month", format="%b %Y"),
-            alt.Tooltip("title_share_pct:Q", title="Share %", format=".2f"),
-            alt.Tooltip("posts_mentioning_in_title:Q", title="Posts"),
+            alt.Tooltip(f"{share_col}:Q", title="Share %", format=".2f"),
+            alt.Tooltip(f"{hits}:Q", title=count_title),
         ],
     ).properties(height=280)
     st.altair_chart(compare, use_container_width=True)
@@ -219,9 +277,12 @@ with st.expander("Data table"):
 
 st.subheader("About the data")
 st.markdown(
-    "- Source: the Arctic Shift archive of r/dataengineering; `score` and comment counts are as of capture time.\n"
-    "- Shares count **titles only**. Removed posts lose their body text and the removal rate rises from about 11% "
-    "to 95% over the period, so counting body text would make recent months look quieter than they are.\n"
+    "- Source: the Arctic Shift archive of r/dataengineering; scores and comment counts are as of the "
+    "archive's re-check about 36 hours after posting.\n"
+    "- Post shares count **titles only**. Removed posts lose their body text and the removal rate rises from "
+    "about 11% to 95% over the period, so counting body text would make recent months look quieter than they are.\n"
+    "- Comment shares count human comments that still have text (about 97% do); AutoModerator is left out. "
+    "Comment volume falls after May 2026, when the subreddit started holding most posts for review.\n"
     "- Tools are matched by keyword (`seeds/tools.csv`). Spot checks found about 90% precision for ambiguous "
     "words like *agent*; known false matches such as *SQL Server Agent* are excluded.\n"
     "- A mention is not an endorsement: a post can mention a tool to criticise it."
