@@ -85,3 +85,45 @@ models:
         description: "Posts whose title mentions an ai-category tool."
       - name: ai_title_share_pct
         description: "ai_posts_in_title / posts × 100."
+
+  - name: fct_comment_tool_mentions
+    description: "One row per (comment, tool) where a human comment's text mentions the tool. AutoModerator and removed comments are left out."
+    columns:
+      - name: comment_id
+        description: "FK to the comment."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_reddit__comments')
+                field: comment_id
+      - name: post_id
+        description: "The post the comment belongs to."
+      - name: tool
+        description: "Tool mentioned, from the tools seed."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('tools')
+                field: tool
+      - name: category
+        description: "Tool category from the tools seed."
+      - name: commented_at
+        description: "Time the comment was created (UTC)."
+
+  - name: mart_comment_tool_mentions_by_month
+    description: "One row per (month, tool): how many human comments with text mentioned the tool, and what share of that month's comments that is."
+    columns:
+      - name: month
+        description: "First day of the month (UTC)."
+        tests: [not_null]
+      - name: tool
+        description: "Tool from the tools seed."
+        tests: [not_null]
+      - name: comments_mentioning
+        description: "Comments that month whose text mentions the tool."
+      - name: comments_in_month
+        description: "Human comments with text that month (AutoModerator and removed comments excluded)."
+      - name: share_pct
+        description: "comments_mentioning / comments_in_month × 100."
