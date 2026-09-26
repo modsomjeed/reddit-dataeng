@@ -1,4 +1,4 @@
-"""Load raw post files from the S3 raw bucket into reddit.posts; ClickHouse reads the bucket itself."""
+"""Load raw post or comment files from the S3 raw bucket into ClickHouse; ClickHouse reads the bucket itself."""
 
 import argparse
 import base64
@@ -11,7 +11,8 @@ from settings import read_env
 # ClickHouse reaches the bucket over the compose network, whichever machine runs this script
 CLICKHOUSE_S3_ENDPOINT = "http://rustfs:9000"
 
-INSERT_SQL = """
+INSERT_SQL = {
+    "posts": """
 INSERT INTO reddit.posts (
     id, subreddit, author, title, selftext, url, permalink,
     link_flair_text, is_self, over_18, score, num_comments,
@@ -36,7 +37,29 @@ SELECT
     toDateTime(JSONExtractInt(json, 'retrieved_on'), 'UTC'),
     json
 FROM s3({url}, {access_key}, {secret_key}, 'JSONAsString')
-"""
+""",
+    "comments": """
+INSERT INTO reddit.comments (
+    id, link_id, parent_id, subreddit, author, body, score, controversiality,
+    is_submitter, distinguished, created_utc, retrieved_on, raw
+)
+SELECT
+    JSONExtractString(json, 'id'),
+    JSONExtractString(json, 'link_id'),
+    JSONExtractString(json, 'parent_id'),
+    JSONExtractString(json, 'subreddit'),
+    JSONExtractString(json, 'author'),
+    JSONExtractString(json, 'body'),
+    JSONExtractInt(json, 'score'),
+    JSONExtractUInt(json, 'controversiality'),
+    JSONExtractBool(json, 'is_submitter'),
+    JSONExtract(json, 'distinguished', 'Nullable(String)'),
+    toDateTime(JSONExtractInt(json, 'created_utc'), 'UTC'),
+    toDateTime(JSONExtractInt(json, 'retrieved_on'), 'UTC'),
+    json
+FROM s3({url}, {access_key}, {secret_key}, 'JSONAsString')
+""",
+}
 
 
 def quote(value: str) -> str:
@@ -51,9 +74,9 @@ def run_query(env: dict[str, str], query: str) -> None:
         pass
 
 
-def load(env: dict[str, str], key_pattern: str) -> None:
-    url = f"{CLICKHOUSE_S3_ENDPOINT}/{env['S3_BUCKET']}/{key_pattern}"
-    run_query(env, INSERT_SQL.format(
+def load(env: dict[str, str], kind: str, key_pattern: str) -> None:
+    url = f"{CLICKHOUSE_S3_ENDPOINT}/{env['S3_BUCKET']}/{kind}/{key_pattern}"
+    run_query(env, INSERT_SQL[kind].format(
         url=quote(url),
         access_key=quote(env["RUSTFS_ACCESS_KEY"]),
         secret_key=quote(env["RUSTFS_SECRET_KEY"]),
@@ -63,18 +86,19 @@ def load(env: dict[str, str], key_pattern: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--kind", choices=INSERT_SQL, default="posts")
     parser.add_argument("--start", type=date.fromisoformat, help="YYYY-MM-DD; omit to load every file")
     parser.add_argument("--end", type=date.fromisoformat, help="YYYY-MM-DD, inclusive; defaults to --start")
     args = parser.parse_args()
 
     env = read_env()
     if args.start is None:
-        load(env, "posts/*.json")
+        load(env, args.kind, "*.json")
         return
 
     day = args.start
     while day <= (args.end or args.start):
-        load(env, f"posts/{day.isoformat()}.json")
+        load(env, args.kind, f"{day.isoformat()}.json")
         day += timedelta(days=1)
 
 

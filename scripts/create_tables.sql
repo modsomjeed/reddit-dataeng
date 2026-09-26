@@ -35,3 +35,30 @@ CREATE TABLE IF NOT EXISTS reddit.posts (
 ENGINE = ReplacingMergeTree(_loaded_at)
 PARTITION BY toYYYYMM(created_utc)
 ORDER BY id;
+
+-- ------------------------------------------------------------
+-- comments
+-- One row per comment. link_id is the post it belongs to
+-- (t3_<post id>); parent_id is the post or comment it replies to.
+-- Same ReplacingMergeTree pattern as posts, so reloads never
+-- duplicate comments.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS reddit.comments (
+    id                String,
+    link_id           String,
+    parent_id         String,
+    subreddit         String,
+    author            String,
+    body              String,
+    score             Int32,
+    controversiality  UInt8,
+    is_submitter      Bool,
+    distinguished     Nullable(String),
+    created_utc       DateTime('UTC'),
+    retrieved_on      DateTime('UTC'),
+    raw               String,
+    _loaded_at        DateTime('UTC') DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(_loaded_at)
+PARTITION BY toYYYYMM(created_utc)
+ORDER BY id;
