@@ -1,0 +1,69 @@
+@startuml lifecycle
+title Data engineering lifecycle — how this project maps to it
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam nodesep 25
+skinparam ranksep 40
+hide stereotype
+skinparam rectangle {
+  RoundCorner 8
+  BorderColor #6b1f5c
+  FontColor #ffffff
+  BackgroundColor #6b1f5c
+}
+skinparam rectangle<<light>> {
+  BackgroundColor #875a88
+  BorderColor #875a88
+}
+skinparam rectangle<<planned>> {
+  BackgroundColor #ffffff
+  FontColor #6b1f5c
+  BorderStyle dashed
+}
+skinparam rectangle<<frame>> {
+  BackgroundColor #ffffff
+  BorderStyle dashed
+  FontColor #6b1f5c
+}
+
+rectangle "**Generation**\n\nReddit r/dataengineering\nvia the Arctic Shift archive\n(posts + comments)" as gen
+
+rectangle "Lifecycle (this repo)" <<frame>> as life {
+  rectangle "**Ingestion**\n\nextract_reddit.py\nload_clickhouse.py\nAirflow: reddit_ingest" as ing
+  rectangle "**Transformation**\n\ndbt: staging → facts → marts\n45 tests\nAirflow: reddit_dbt" as trans
+  rectangle "**Serving**\n\nmarts granted to the\nanalyst role\n(read-only dashboard user)" as serve
+  rectangle "**Storage**\n\nRustFS data lake: raw JSON, one file per day\nClickHouse warehouse: raw → staging → marts" <<light>> as store
+}
+
+rectangle "Uses" <<frame>> as uses {
+  rectangle "**Analytics**\n\nStreamlit dashboard" as analytics
+  rectangle "**Machine learning**\n\n(planned)" <<planned>> as ml
+  rectangle "**Reverse ETL**\n\n(planned)" <<planned>> as retl
+}
+
+gen -right-> ing
+ing -right-> trans
+trans -right-> serve
+serve -right-> uses
+ing -[hidden]down-> store
+trans -[hidden]down-> store
+serve -[hidden]down-> store
+analytics -[hidden]down- ml
+ml -[hidden]down- retl
+
+rectangle "Undercurrents" <<frame>> as under {
+  rectangle "**Security**\n\nsecrets in .env\n127.0.0.1 ports\nread-only role" <<light>> as sec
+  rectangle "**Data management**\n\ngovernance.md\nPII hashing\ndbt docs + lineage" <<light>> as dm
+  rectangle "**DataOps**\n\ndbt tests\nsource freshness\nidempotent reloads" <<light>> as ops
+  rectangle "**Data architecture**\n\n4+1 View Model\nkey decisions" <<light>> as arch
+  rectangle "**Orchestration**\n\nAirflow 3\nAsset-triggered dbt" <<light>> as orch
+  rectangle "**Software engineering**\n\nConventional Commits\nuv · Makefile · Docker" <<light>> as swe
+}
+store -[hidden]down-> under
+gen -[hidden]down-> under
+sec -[hidden]right- dm
+dm -[hidden]right- ops
+ops -[hidden]right- arch
+arch -[hidden]right- orch
+orch -[hidden]right- swe
+@enduml

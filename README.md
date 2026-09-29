@@ -13,10 +13,33 @@ stack, not replacing it.
 
 Python · Airflow 3 · RustFS (S3) · ClickHouse · dbt · Streamlit · Docker Compose · PlantUML
 
-```
-Arctic Shift API → RustFS (raw JSON) → ClickHouse (raw) → dbt (staging → marts) → Streamlit
-                          orchestrated daily by Airflow
-```
+## Data engineering lifecycle
+
+The project follows the data engineering lifecycle from *Fundamentals of Data Engineering*
+(Reis & Housley): data moves from generation through ingestion, transformation and serving, on
+top of storage, and every stage leans on the same undercurrents.
+
+![Data engineering lifecycle](docs/architecture/diagrams/lifecycle.svg)
+
+| Stage | In this project | Where |
+|---|---|---|
+| Generation | Reddit r/dataengineering posts and comments, read through the Arctic Shift archive | [`scripts/extract_reddit.py`](scripts/extract_reddit.py) |
+| Ingestion | Daily batch: extract a day to RustFS, then ClickHouse loads it with `s3()`; idempotent and backfillable | [`scripts/`](scripts/), [`reddit_ingest`](airflow/dags/reddit_ingest.py) |
+| Storage | RustFS data lake (raw JSON, one file per day) and ClickHouse warehouse (raw → staging → marts) | [`docker-compose.yml`](docker-compose.yml), [`scripts/create_tables.sql`](scripts/create_tables.sql) |
+| Transformation | dbt staging, facts and marts, a `tools` seed and 45 tests; runs when both raw tables have new data | [`dbt/reddit/`](dbt/reddit/), [`reddit_dbt`](airflow/dags/reddit_dbt.py) |
+| Serving | Marts granted to a read-only `analyst` role | [`scripts/create_users.sh`](scripts/create_users.sh) |
+| Analytics | Streamlit dashboard for a DE lead | [`dashboard/`](dashboard/) |
+| Machine learning | Not covered yet | — |
+| Reverse ETL | Not covered yet | — |
+
+| Undercurrent | In this project |
+|---|---|
+| Security | Secrets only in `.env`, services bound to 127.0.0.1, read-only dashboard user |
+| Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits |
+| DataOps | dbt tests, source freshness gate, retries with backoff, idempotent reloads |
+| Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
+| Orchestration | Airflow 3: a daily ingest DAG and an Asset-triggered dbt DAG |
+| Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose |
 
 ## Getting started
 

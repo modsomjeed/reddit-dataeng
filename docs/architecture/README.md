@@ -6,6 +6,9 @@ Arctic Shift API → RustFS (raw JSON) → ClickHouse (raw table) → dbt (stagi
 
 Diagrams are written in PlantUML (`diagrams/*.puml`) and rendered to SVG with `make diagrams`.
 
+For how the project maps to the data engineering lifecycle, see the
+[lifecycle diagram](diagrams/lifecycle.svg) and the table in the main [README](../../README.md#data-engineering-lifecycle).
+
 ## +1 Scenarios
 
 Who uses the platform and what they do with it. The Airflow scheduler runs the
