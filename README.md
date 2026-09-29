@@ -63,7 +63,7 @@ for a shorter range. `make bootstrap` runs steps 2–4 in one go.
 | What | Where |
 |---|---|
 | Dashboard | http://localhost:8501 |
-| Airflow (airflow / airflow) | http://localhost:8080 — unpause `reddit_daily` to run it daily at 02:00 UTC |
+| Airflow (airflow / airflow) | http://localhost:8080 — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
 | RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
 | dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
 
@@ -83,7 +83,8 @@ Run `make` (or `make help`) to list them:
 | `make dbt-build` | Build and test all dbt models |
 | `make dbt-docs` | Generate dbt docs and serve them on port 8081 |
 | `make bootstrap` | First run: `setup`, `up`, backfill and load posts and comments, then `dbt-build` |
-| `make airflow-test DAY=…` | Run the whole `reddit_daily` DAG once for one day |
+| `make ingest-test DAY=…` | Run the `reddit_ingest` DAG once for one day (extract and load only) |
+| `make dbt-test` | Run the `reddit_dbt` DAG once (source freshness, then dbt build) |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
 
 ## What's inside
@@ -91,7 +92,7 @@ Run `make` (or `make help`) to list them:
 | Path | What |
 |---|---|
 | `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; ClickHouse init scripts |
-| `airflow/` | Custom image (Airflow + dbt) and the `reddit_daily` DAG |
+| `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG |
 | `dbt/reddit/` | Staging, facts and marts for posts and comments, the `tools` seed, macros and 45 tests |
 | `dashboard/` | Streamlit dashboard for a DE lead |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |

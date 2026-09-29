@@ -14,7 +14,7 @@ package "reddit-dataeng/" {
   package "airflow/" as af {
     artifact "Dockerfile\n(apache/airflow + dbt venv)" as afd
     package "dags/" {
-      artifact "reddit_daily.py" as dag
+      artifact "reddit_ingest.py\nreddit_dbt.py\nreddit_assets.py" as dag
     }
   }
   package "dbt/  (uv project)" as dbtproj {

@@ -6,7 +6,7 @@ END          ?= 2026-09-24
 KIND         ?= posts
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load dbt-build dbt-docs bootstrap airflow-test diagrams
+.PHONY: help setup up down ps logs backfill load dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -52,9 +52,12 @@ bootstrap: setup up ## First run: setup, up, then backfill and load posts and co
 	$(MAKE) load KIND=comments
 	$(MAKE) dbt-build
 
-airflow-test: ## Run the whole reddit_daily DAG once for DAY, e.g. make airflow-test DAY=2026-09-24
+ingest-test: ## Run the reddit_ingest DAG once for DAY (extract + load only), e.g. make ingest-test DAY=2026-09-24
 	@test -n "$(DAY)" || (echo "set DAY=YYYY-MM-DD" && exit 1)
-	docker exec airflow-scheduler airflow dags test reddit_daily $(DAY)
+	docker exec airflow-scheduler airflow dags test reddit_ingest $(DAY)
+
+dbt-test: ## Run the reddit_dbt DAG once (source freshness, then dbt build) inside Airflow
+	docker exec airflow-scheduler airflow dags test reddit_dbt
 
 diagrams: ## Render every PlantUML diagram to SVG
 	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data plantuml/plantuml:latest -tsvg "/data/*.puml"
