@@ -31,6 +31,16 @@ How this project handles personal data, access, freshness and known data-quality
   `ACCESS_DENIED`.
 - The pipeline (Airflow, dbt, loader) uses the admin user from `.env`; credentials never live in the repo.
 
+## Backup and restore
+
+- The raw bucket is the only copy of what was extracted; ClickHouse and every dbt model can be
+  rebuilt from it with `make load` and `make dbt-build`.
+- `make backup-raw` copies the bucket to `data/backup/reddit-raw/` (git-ignored), downloading only
+  new or changed files. `make restore-raw` uploads whatever the bucket is missing.
+- Why: deleting the Docker volumes once wiped both RustFS and ClickHouse. Posts came back from a
+  local copy in minutes; comments had no copy and took hours to re-extract from the archive.
+  A restore test into a scratch bucket reproduced all 1,468 files exactly.
+
 ## Freshness and quality checks
 
 - Source freshness on `created_utc` of both `reddit.posts` and `reddit.comments`: warn after 36 h,

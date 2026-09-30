@@ -35,7 +35,7 @@ top of storage, and every stage leans on the same undercurrents.
 | Undercurrent | In this project |
 |---|---|
 | Security | Secrets only in `.env`, services bound to 127.0.0.1, read-only dashboard user |
-| Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits |
+| Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits, raw-bucket backup and restore |
 | DataOps | dbt tests, source freshness gate, retries with backoff, idempotent reloads |
 | Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
 | Orchestration | Airflow 3: a daily ingest DAG and an Asset-triggered dbt DAG |
@@ -102,6 +102,8 @@ Run `make` (or `make help`) to list them:
 | `make ps` | Show service status and URLs |
 | `make logs SERVICE=…` | Follow logs, e.g. `SERVICE=airflow-scheduler` |
 | `make backfill [KIND=… START=… END=…]` | Extract posts (default) or comments to RustFS for a date range (default: the full two years) |
+| `make backup-raw` | Copy the raw bucket to `data/backup/` (new or changed files only) |
+| `make restore-raw` | Upload files from `data/backup/` that the raw bucket is missing |
 | `make load [KIND=…]` | Load every raw posts (default) or comments file from RustFS into ClickHouse |
 | `make dbt-build` | Build and test all dbt models |
 | `make dbt-docs` | Generate dbt docs and serve them on port 8081 |
