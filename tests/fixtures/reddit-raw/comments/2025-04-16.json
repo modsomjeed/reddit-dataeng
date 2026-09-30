@@ -1,0 +1,36 @@
+[
+  {
+    "id": "cc015",
+    "link_id": "t3_ci013",
+    "parent_id": "t3_ci013",
+    "subreddit": "dataengineering",
+    "author": "ci_user_13",
+    "body": "We let an LLM draft SQL, then review it like any other pull request.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1744797600,
+    "retrieved_on": 1744797630,
+    "_meta": {
+      "retrieved_2nd_on": 1744927200
+    }
+  },
+  {
+    "id": "cc016",
+    "link_id": "t3_ci014",
+    "parent_id": "t3_ci014",
+    "subreddit": "dataengineering",
+    "author": "ci_user_14",
+    "body": "dbt snapshots, unless the source already keeps history.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1744824600,
+    "retrieved_on": 1744824630,
+    "_meta": {
+      "retrieved_2nd_on": 1744954200
+    }
+  }
+]

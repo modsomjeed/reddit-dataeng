@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ci013",
+    "subreddit": "dataengineering",
+    "author": "ci_user_13",
+    "title": "Are AI agents writing your SQL yet?",
+    "selftext": "Curious how teams use them day to day.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci013/",
+    "permalink": "/r/dataengineering/comments/ci013/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 1,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1744794900,
+    "retrieved_on": 1744794930,
+    "_meta": {
+      "retrieved_2nd_on": 1744924500
+    }
+  },
+  {
+    "id": "ci014",
+    "subreddit": "dataengineering",
+    "author": "ci_user_14",
+    "title": "dbt snapshots or slowly changing dimensions by hand?",
+    "selftext": "Small team, Postgres warehouse.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci014/",
+    "permalink": "/r/dataengineering/comments/ci014/",
+    "link_flair_text": "Help",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 1,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1744821600,
+    "retrieved_on": 1744821630,
+    "_meta": {
+      "retrieved_2nd_on": 1744951200
+    }
+  }
+]

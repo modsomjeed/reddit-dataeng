@@ -28,8 +28,8 @@ def scalar(sql: str):
 
 
 def test_every_fixture_row_reaches_staging():
-    assert int(scalar("select count() from reddit_analytics.stg_reddit__posts")) == 12
-    assert int(scalar("select count() from reddit_analytics.stg_reddit__comments")) == 14
+    assert int(scalar("select count() from reddit_analytics.stg_reddit__posts")) == 14
+    assert int(scalar("select count() from reddit_analytics.stg_reddit__comments")) == 16
 
 
 def test_multi_word_tools_are_found():
@@ -72,3 +72,19 @@ def test_dashboard_user_reads_marts_but_not_staging():
     assert int(rows[0]["n"]) > 0
     with pytest.raises(urllib.error.HTTPError):
         query("select count() from reddit_analytics.stg_reddit__posts", "dashboard", password)
+
+
+def test_comparison_windows_skip_the_partial_first_and_last_months():
+    # fixtures cover Jan–Apr 2025 and CI runs with comparison_window_months=1:
+    # Jan and Apr are the partial edges, so Feb is the first window and Mar the last
+    rows = {r["period"]: r["month"] for r in query("select period, month from reddit_analytics.dim_comparison_windows")}
+    assert rows == {"first": "2025-02-01", "last": "2025-03-01"}
+
+
+def test_ai_share_change_compares_the_two_windows():
+    rows = {r["measure"]: r for r in query("select * from reddit_analytics.mart_ai_share_change")}
+    assert set(rows) == {"Post titles", "Comments"}
+    # Feb titles: 1 of 4 mention AI (the LLM agent post); Mar titles: 1 of 4 (ChatGPT)
+    assert float(rows["Post titles"]["first_share_pct"]) == 25.0
+    assert float(rows["Post titles"]["last_share_pct"]) == 25.0
+
