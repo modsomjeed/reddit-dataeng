@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 with comments as (
     -- the same population the fact matches against: human comments with text
     select

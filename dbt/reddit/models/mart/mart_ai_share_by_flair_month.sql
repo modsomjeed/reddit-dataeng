@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 with posts as (
     select * from {{ ref('fct_posts') }}
 )

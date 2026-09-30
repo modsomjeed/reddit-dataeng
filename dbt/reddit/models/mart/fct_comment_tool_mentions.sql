@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 -- Comments keep their text far more often than posts (about 3% removed vs up to 95%),
 -- so they are the steadier signal of what people actually discuss.
 with comments as (

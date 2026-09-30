@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 with posts as (
     select
         post_id,

@@ -24,7 +24,11 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 models:
   reddit:
+    # materializations live here, per layer, instead of in each model
+    staging:
+      +materialized: view   # cheap, always reflects the raw tables
     mart:
+      +materialized: table  # what the dashboard queries, so built once per run
       # the analyst role (dashboard user) may read marts, never raw or staging
       +grants:
         select: ['analyst']
