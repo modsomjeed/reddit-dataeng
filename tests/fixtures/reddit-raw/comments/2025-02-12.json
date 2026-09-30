@@ -1,0 +1,88 @@
+[
+  {
+    "id": "cc007",
+    "link_id": "t3_ci005",
+    "parent_id": "t3_ci005",
+    "subreddit": "dataengineering",
+    "author": "AutoModerator",
+    "body": "Your post was removed: self-promotion is limited to once a month.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": "moderator",
+    "created_utc": 1739348460,
+    "retrieved_on": 1739348490,
+    "_meta": {
+      "retrieved_2nd_on": 1739478060
+    }
+  },
+  {
+    "id": "cc008",
+    "link_id": "t3_ci006",
+    "parent_id": "t3_ci006",
+    "subreddit": "dataengineering",
+    "author": "ci_user_6",
+    "body": "DuckDB handles 50 GB on one machine without trouble.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1739356200,
+    "retrieved_on": 1739356230,
+    "_meta": {
+      "retrieved_2nd_on": 1739485800
+    }
+  },
+  {
+    "id": "cc009",
+    "link_id": "t3_ci006",
+    "parent_id": "t1_cc008",
+    "subreddit": "dataengineering",
+    "author": "ci_user_7",
+    "body": "[removed]",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1739358000,
+    "retrieved_on": 1739358030,
+    "_meta": {
+      "retrieved_2nd_on": 1739487600
+    }
+  },
+  {
+    "id": "cc010",
+    "link_id": "t3_ci007",
+    "parent_id": "t3_ci007",
+    "subreddit": "dataengineering",
+    "author": "ci_user_8",
+    "body": "Set auto-suspend on every Snowflake warehouse.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1739368800,
+    "retrieved_on": 1739368830,
+    "_meta": {
+      "retrieved_2nd_on": 1739498400,
+      "removal_type": "deleted"
+    }
+  },
+  {
+    "id": "cc011",
+    "link_id": "t3_ci008",
+    "parent_id": "t3_ci008",
+    "subreddit": "dataengineering",
+    "author": "ci_user_9",
+    "body": "Use a ReplacingMergeTree in ClickHouse and dedup on read.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1739383200,
+    "retrieved_on": 1739383230,
+    "_meta": {
+      "retrieved_2nd_on": 1739512800
+    }
+  }
+]

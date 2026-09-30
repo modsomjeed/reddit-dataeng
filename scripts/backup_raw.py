@@ -51,13 +51,14 @@ def restore(s3, bucket: str, source: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("direction", choices=["backup", "restore"])
+    parser.add_argument("--folder", type=Path, help="local folder to use instead of data/backup/<bucket>")
     args = parser.parse_args()
 
     env = read_env()
     s3 = s3_client(env)
     bucket = env["S3_BUCKET"]
     ensure_bucket(s3, bucket)
-    folder = BACKUP_DIR / bucket
+    folder = args.folder or BACKUP_DIR / bucket
     if args.direction == "backup":
         backup(s3, bucket, folder)
     else:

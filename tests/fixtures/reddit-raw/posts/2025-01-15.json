@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ci001",
+    "subreddit": "dataengineering",
+    "author": "ci_user_1",
+    "title": "Moving from SQL Server to Delta Lake — worth it?",
+    "selftext": "We run nightly batch jobs and want a lakehouse.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci001/",
+    "permalink": "/r/dataengineering/comments/ci001/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1736931600,
+    "retrieved_on": 1736931630,
+    "_meta": {
+      "retrieved_2nd_on": 1737061200
+    }
+  },
+  {
+    "id": "ci002",
+    "subreddit": "dataengineering",
+    "author": "ci_user_2",
+    "title": "Power BI or Tableau for a small team?",
+    "selftext": "Five analysts, mostly Excel today.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci002/",
+    "permalink": "/r/dataengineering/comments/ci002/",
+    "link_flair_text": "Help",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1736940600,
+    "retrieved_on": 1736940630,
+    "_meta": {
+      "retrieved_2nd_on": 1737070200
+    }
+  },
+  {
+    "id": "ci003",
+    "subreddit": "dataengineering",
+    "author": "ci_user_3",
+    "title": "How do you test dbt models before they hit prod?",
+    "selftext": "Unit tests or just data tests?",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci003/",
+    "permalink": "/r/dataengineering/comments/ci003/",
+    "link_flair_text": "Help",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1736950200,
+    "retrieved_on": 1736950230,
+    "_meta": {
+      "retrieved_2nd_on": 1737079800
+    }
+  },
+  {
+    "id": "ci004",
+    "subreddit": "dataengineering",
+    "author": "ci_user_4",
+    "title": "Is AI going to replace junior data engineers?",
+    "selftext": "Worried about the job market.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci004/",
+    "permalink": "/r/dataengineering/comments/ci004/",
+    "link_flair_text": "Career",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1736973900,
+    "retrieved_on": 1736973930,
+    "_meta": {
+      "retrieved_2nd_on": 1737103500
+    }
+  }
+]

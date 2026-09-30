@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ci005",
+    "subreddit": "dataengineering",
+    "author": "ci_user_5",
+    "title": "Built an LLM agent that writes Airflow DAGs",
+    "selftext": "[removed]",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci005/",
+    "permalink": "/r/dataengineering/comments/ci005/",
+    "link_flair_text": "Personal Project Showcase",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": "automod_filtered",
+    "created_utc": 1739348400,
+    "retrieved_on": 1739348430,
+    "_meta": {
+      "retrieved_2nd_on": 1739478000
+    }
+  },
+  {
+    "id": "ci006",
+    "subreddit": "dataengineering",
+    "author": "ci_user_6",
+    "title": "Spark vs DuckDB for 50 GB of parquet",
+    "selftext": "Single machine or a cluster?",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci006/",
+    "permalink": "/r/dataengineering/comments/ci006/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1739354700,
+    "retrieved_on": 1739354730,
+    "_meta": {
+      "retrieved_2nd_on": 1739484300
+    }
+  },
+  {
+    "id": "ci007",
+    "subreddit": "dataengineering",
+    "author": "ci_user_7",
+    "title": "Our Snowflake bill doubled — where do we start?",
+    "selftext": "Warehouses left running over the weekend.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci007/",
+    "permalink": "/r/dataengineering/comments/ci007/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1739367600,
+    "retrieved_on": 1739367630,
+    "_meta": {
+      "retrieved_2nd_on": 1739497200
+    }
+  },
+  {
+    "id": "ci008",
+    "subreddit": "dataengineering",
+    "author": "ci_user_8",
+    "title": "Kafka to ClickHouse: exactly-once in practice?",
+    "selftext": "Seeing duplicates after consumer restarts.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci008/",
+    "permalink": "/r/dataengineering/comments/ci008/",
+    "link_flair_text": "Help",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1739380500,
+    "retrieved_on": 1739380530,
+    "_meta": {
+      "retrieved_2nd_on": 1739510100
+    }
+  }
+]

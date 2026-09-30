@@ -1,0 +1,53 @@
+[
+  {
+    "id": "cc012",
+    "link_id": "t3_ci009",
+    "parent_id": "t3_ci009",
+    "subreddit": "dataengineering",
+    "author": "ci_user_10",
+    "body": "An LLM drafts it, but verify every column against real data.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1742292000,
+    "retrieved_on": 1742292030,
+    "_meta": {
+      "retrieved_2nd_on": 1742421600
+    }
+  },
+  {
+    "id": "cc013",
+    "link_id": "t3_ci011",
+    "parent_id": "t3_ci011",
+    "subreddit": "dataengineering",
+    "author": "ci_user_11",
+    "body": "Databricks pushes Delta Lake, but Iceberg is more open.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1742313600,
+    "retrieved_on": 1742313630,
+    "_meta": {
+      "retrieved_2nd_on": 1742443200
+    }
+  },
+  {
+    "id": "cc014",
+    "link_id": "t3_ci012",
+    "parent_id": "t3_ci012",
+    "subreddit": "dataengineering",
+    "author": "ci_user_12",
+    "body": "Migrating our Kafka pipelines this week.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1742328600,
+    "retrieved_on": 1742328630,
+    "_meta": {
+      "retrieved_2nd_on": 1742458200
+    }
+  }
+]

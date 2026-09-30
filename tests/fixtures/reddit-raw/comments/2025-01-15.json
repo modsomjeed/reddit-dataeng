@@ -1,0 +1,104 @@
+[
+  {
+    "id": "cc001",
+    "link_id": "t3_ci001",
+    "parent_id": "t3_ci001",
+    "subreddit": "dataengineering",
+    "author": "ci_user_2",
+    "body": "Our SQL Server Agent jobs still run the nightly loads, so plan the scheduler move first.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1736934000,
+    "retrieved_on": 1736934030,
+    "_meta": {
+      "retrieved_2nd_on": 1737063600
+    }
+  },
+  {
+    "id": "cc002",
+    "link_id": "t3_ci001",
+    "parent_id": "t1_cc001",
+    "subreddit": "dataengineering",
+    "author": "ci_user_1",
+    "body": "Good point, we'd move them to Airflow.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": true,
+    "distinguished": null,
+    "created_utc": 1736935500,
+    "retrieved_on": 1736935530,
+    "_meta": {
+      "retrieved_2nd_on": 1737065100
+    }
+  },
+  {
+    "id": "cc003",
+    "link_id": "t3_ci002",
+    "parent_id": "t3_ci002",
+    "subreddit": "dataengineering",
+    "author": "ci_user_3",
+    "body": "Power BI if you're already on Microsoft 365.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1736942400,
+    "retrieved_on": 1736942430,
+    "_meta": {
+      "retrieved_2nd_on": 1737072000
+    }
+  },
+  {
+    "id": "cc004",
+    "link_id": "t3_ci003",
+    "parent_id": "t3_ci003",
+    "subreddit": "dataengineering",
+    "author": "ci_user_4",
+    "body": "dbt unit tests for the tricky logic, data tests for everything else.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1736953200,
+    "retrieved_on": 1736953230,
+    "_meta": {
+      "retrieved_2nd_on": 1737082800
+    }
+  },
+  {
+    "id": "cc005",
+    "link_id": "t3_ci004",
+    "parent_id": "t3_ci004",
+    "subreddit": "dataengineering",
+    "author": "ci_user_5",
+    "body": "AI helps me write SQL faster, it doesn't replace knowing the business.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1736975400,
+    "retrieved_on": 1736975430,
+    "_meta": {
+      "retrieved_2nd_on": 1737105000
+    }
+  },
+  {
+    "id": "cc006",
+    "link_id": "t3_ci004",
+    "parent_id": "t1_cc005",
+    "subreddit": "dataengineering",
+    "author": "[deleted]",
+    "body": "Copilot writes the boilerplate, I still review everything.",
+    "score": 3,
+    "controversiality": 0,
+    "is_submitter": false,
+    "distinguished": null,
+    "created_utc": 1736976600,
+    "retrieved_on": 1736976630,
+    "_meta": {
+      "retrieved_2nd_on": 1737106200
+    }
+  }
+]

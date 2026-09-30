@@ -1,0 +1,87 @@
+[
+  {
+    "id": "ci009",
+    "subreddit": "dataengineering",
+    "author": "ci_user_9",
+    "title": "Using ChatGPT to document an old Postgres schema",
+    "selftext": "Three hundred tables and no docs.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci009/",
+    "permalink": "/r/dataengineering/comments/ci009/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1742290200,
+    "retrieved_on": 1742290230,
+    "_meta": {
+      "retrieved_2nd_on": 1742419800
+    }
+  },
+  {
+    "id": "ci010",
+    "subreddit": "dataengineering",
+    "author": "ci_user_10",
+    "title": "First data engineering job: what should I learn first?",
+    "selftext": "SQL, Python, or cloud?",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci010/",
+    "permalink": "/r/dataengineering/comments/ci010/",
+    "link_flair_text": "Career",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1742299200,
+    "retrieved_on": 1742299230,
+    "_meta": {
+      "retrieved_2nd_on": 1742428800,
+      "removal_type": "moderator"
+    }
+  },
+  {
+    "id": "ci011",
+    "subreddit": "dataengineering",
+    "author": "ci_user_11",
+    "title": "Iceberg or Delta Lake for a new lakehouse?",
+    "selftext": "Mostly batch, some streaming later.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci011/",
+    "permalink": "/r/dataengineering/comments/ci011/",
+    "link_flair_text": "Discussion",
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1742311500,
+    "retrieved_on": 1742311530,
+    "_meta": {
+      "retrieved_2nd_on": 1742441100
+    }
+  },
+  {
+    "id": "ci012",
+    "subreddit": "dataengineering",
+    "author": "ci_user_12",
+    "title": "Weekly thread: what are you working on?",
+    "selftext": "Share your projects.",
+    "url": "https://www.reddit.com/r/dataengineering/comments/ci012/",
+    "permalink": "/r/dataengineering/comments/ci012/",
+    "link_flair_text": null,
+    "is_self": true,
+    "over_18": false,
+    "score": 5,
+    "num_comments": 2,
+    "upvote_ratio": 0.9,
+    "removed_by_category": null,
+    "created_utc": 1742327400,
+    "retrieved_on": 1742327430,
+    "_meta": {
+      "retrieved_2nd_on": 1742457000
+    }
+  }
+]
