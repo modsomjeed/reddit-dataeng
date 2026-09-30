@@ -11,7 +11,7 @@ KIND         ?= posts
 AIRFLOW_PORT ?= 8082
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load backup-raw restore-raw dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
+.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -48,6 +48,12 @@ backup-raw: ## Copy the raw bucket (posts + comments JSON) to data/backup/ — r
 
 restore-raw: ## Upload files from data/backup/ that the raw bucket is missing (e.g. after losing Docker volumes)
 	uv run scripts/backup_raw.py restore
+
+lint: ## Lint the Python code with ruff
+	uv run ruff check .
+
+test: ## Run the unit tests (the end-to-end checks run in CI)
+	uv run pytest
 
 dbt-build: ## Build and test all dbt models
 	$(DBT) build
