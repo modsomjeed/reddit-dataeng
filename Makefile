@@ -6,7 +6,7 @@ END          ?= 2026-09-24
 KIND         ?= posts
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
+.PHONY: help setup up down ps logs backfill load backup-raw restore-raw dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -37,6 +37,12 @@ backfill: ## Extract KIND=posts|comments from Arctic Shift to RustFS for START..
 
 load: ## Load every raw KIND=posts|comments file from RustFS into ClickHouse (safe to rerun)
 	uv run scripts/load_clickhouse.py --kind $(KIND)
+
+backup-raw: ## Copy the raw bucket (posts + comments JSON) to data/backup/ — rerun to pick up new days
+	uv run scripts/backup_raw.py backup
+
+restore-raw: ## Upload files from data/backup/ that the raw bucket is missing (e.g. after losing Docker volumes)
+	uv run scripts/backup_raw.py restore
 
 dbt-build: ## Build and test all dbt models
 	$(DBT) build
