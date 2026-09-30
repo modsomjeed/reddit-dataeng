@@ -37,17 +37,20 @@ the marts carry neither, and only the marts are granted to the `analyst` role.
 
 ## Process view
 
-What happens at runtime during one daily run: which component calls which, and in
-what order. Posts and comments are extracted and loaded in parallel. Airflow runs one DAG run at a time; each task retries with exponential
-backoff, and a stale source stops the run before dbt rebuilds anything.
+What happens at runtime during one day: which component calls which, and in what order.
+Two DAGs share the work. `reddit_ingest` extracts and loads posts and comments in parallel
+and marks the two raw tables as updated Assets; `reddit_dbt` is triggered by those Assets,
+so ingestion (and backfills) can run without rebuilding the models each time. Each task
+retries with exponential backoff, and a stale source stops `reddit_dbt` before it rebuilds
+anything.
 
 ![Communication diagram](diagrams/communication-daily-run.svg)
 ![Activity diagram](diagrams/activity-dag.svg)
 
 ## Development view
 
-How the code is organised: Python scripts for extract and load, the Airflow DAG
-that runs them, the dbt project with its staging, mart, seed and test folders, and
+How the code is organised: Python scripts for extract and load, the two Airflow DAGs
+that run them and dbt, the dbt project with its staging, mart, seed and test folders, and
 the Streamlit dashboard.
 
 ![Development view](diagrams/development-packages.svg)
@@ -69,6 +72,7 @@ dashboard, the RustFS API and console, and ClickHouse are exposed, and only on
 | RustFS instead of MinIO | MinIO's Docker images can no longer be pulled. RustFS speaks the same S3 API. |
 | ClickHouse reads the bucket with `s3()` | Load becomes a single SQL statement (ELT), with no row handling in Python. |
 | `ReplacingMergeTree` on the raw table | Reloading a day adds no duplicates; staging reads it with `FINAL`. |
+| Ingestion and dbt in separate, Asset-linked DAGs | Backfills and reruns of ingestion don't force a dbt rebuild per day; dbt runs when both raw tables have new data. |
 | `CronDataIntervalTimetable` in Airflow | Airflow 3's plain cron schedule sets `ds` to the run date, so a 02:00 run would extract an unfinished day. |
 | Dashboard user with the `analyst` role | The dashboard can read marts only; raw usernames and staging stay out of reach. See [governance](../governance.md). |
 | Week-wide query windows for the archive | Narrow time windows make Arctic Shift's comment search time out; queries span a week and are cut at the end of the day. |

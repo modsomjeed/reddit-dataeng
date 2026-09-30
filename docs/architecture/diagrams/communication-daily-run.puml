@@ -1,15 +1,20 @@
 @startuml communication-daily-run
-title Process view — Communication diagram: one daily run
+title Process view — Communication diagram: one day, two Asset-linked DAGs
 skinparam shadowing false
 left to right direction
 
 object ":Airflow Scheduler" as scheduler
-object "extract_posts:BashOperator" as extractp
-object "extract_comments:BashOperator" as extractc
-object "load_posts:BashOperator" as loadp
-object "load_comments:BashOperator" as loadc
-object "dbt_source_freshness:BashOperator" as fresh
-object "dbt_build:BashOperator" as dbt
+package "reddit_ingest (daily 02:00 UTC)" {
+  object "extract_posts:BashOperator" as extractp
+  object "extract_comments:BashOperator" as extractc
+  object "load_posts:BashOperator" as loadp
+  object "load_comments:BashOperator" as loadc
+}
+package "reddit_dbt (Asset-triggered)" {
+  object "dbt_source_freshness:BashOperator" as fresh
+  object "dbt_build:BashOperator" as dbt
+}
+object "reddit.posts / reddit.comments:Asset" as assets
 object ":Arctic Shift API" as arctic
 object "reddit-raw:RustFS bucket" as bucket
 object ":ClickHouse" as ch
@@ -25,8 +30,11 @@ scheduler --> loadc : "2b: run(ds) [1b succeeded]"
 loadp --> ch : "2a.1: INSERT … SELECT FROM s3(posts/ds.json)"
 loadc --> ch : "2b.1: INSERT … SELECT FROM s3(comments/ds.json)"
 ch --> bucket : "2a.1.1 / 2b.1.1: GET day files"
-scheduler --> fresh : "3: run() [2a and 2b succeeded]"
-fresh --> ch : "3.1: max(created_utc) of posts and comments"
-scheduler --> dbt : "4: run() [3 succeeded]"
-dbt --> ch : "4.1: build staging, facts, marts\n4.2: run 45 tests\n4.3: GRANT SELECT on marts TO analyst"
+loadp --> assets : "2a.2: emit event (reddit.posts)"
+loadc --> assets : "2b.2: emit event (reddit.comments)"
+assets --> scheduler : "3: both updated → trigger reddit_dbt"
+scheduler --> fresh : "4: run()"
+fresh --> ch : "4.1: max(created_utc) of posts and comments"
+scheduler --> dbt : "5: run() [4 succeeded]"
+dbt --> ch : "5.1: build staging, facts, marts\n5.2: run 45 tests\n5.3: GRANT SELECT on marts TO analyst"
 @enduml

@@ -34,8 +34,8 @@ How this project handles personal data, access, freshness and known data-quality
 ## Freshness and quality checks
 
 - Source freshness on `created_utc` of both `reddit.posts` and `reddit.comments`: warn after 36 h,
-  error after 72 h. It runs in the DAG before `dbt_build`, so a stalled archive stops the pipeline
-  instead of rebuilding on stale data.
+  error after 72 h. It is the first task of the `reddit_dbt` DAG, so a stalled archive stops the
+  rebuild instead of refreshing the marts on stale data.
 - 45 dbt tests: keys unique and not null, relationships between facts and staging/seed, accepted
   values, grain uniqueness, a guard against the multi-word matching bug, title ≤ total mentions,
   and a guard that a null comment body always means a removed one. The comment → post relationship

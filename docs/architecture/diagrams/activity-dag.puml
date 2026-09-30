@@ -1,33 +1,24 @@
 @startuml activity-dag
-title Process view — Activity diagram: reddit_daily DAG run
+title Process view — Activity diagram: reddit_ingest, then Asset-triggered reddit_dbt
 skinparam shadowing false
 
+|reddit_ingest|
 start
 :Scheduler fires at 02:00 UTC\n(data interval = previous UTC day, ds);
-if (Another run of reddit_daily active?) then (yes)
+if (Another reddit_ingest run active?) then (yes)
   :Wait (max_active_runs = 1);
 endif
 fork
-  partition "extract_posts → load_posts" {
-    repeat
-      :GET Arctic Shift posts page (100);
-    repeat while (page full?) is (yes)
-    ->no;
-    :Drop duplicate ids;
-    :PUT posts/<ds>.json to RustFS;
-    :INSERT into reddit.posts via s3();
-  }
+  :extract_posts\nGET pages → PUT posts/<ds>.json;
+  :load_posts\nINSERT into reddit.posts via s3();
+  :Emit Asset event: reddit.posts;
 fork again
-  partition "extract_comments → load_comments" {
-    repeat
-      :GET Arctic Shift comments page (100)\n(week-wide window, 2 s pause);
-    repeat while (page full and still inside ds?) is (yes)
-    ->no;
-    :Drop duplicate ids and comments after ds;
-    :PUT comments/<ds>.json to RustFS;
-    :INSERT into reddit.comments via s3();
-  }
+  :extract_comments\n(week-wide window, 2 s pause)\nGET pages → PUT comments/<ds>.json;
+  :load_comments\nINSERT into reddit.comments via s3();
+  :Emit Asset event: reddit.comments;
 end fork
+|reddit_dbt|
+:Triggered once both Assets have new events\n(a backfill's many events fold into few runs);
 partition "dbt_source_freshness" {
   :Age of newest post and newest comment;
   if (either older than 72 h?) then (yes)
@@ -46,6 +37,7 @@ note right
   up to 3 retries, exponential backoff,
   max 10 min wait. --force re-extracts the day
   and ReplacingMergeTree dedups by id, so
-  reruns never duplicate rows.
+  reruns never duplicate rows. Pause reddit_dbt
+  during a long backfill to build only once.
 end note
 @enduml

@@ -1,5 +1,5 @@
 @startuml ssd-daily-pipeline
-title Scenarios — System sequence diagram: UC1 Run daily pipeline
+title Scenarios — System sequence diagram: UC1 Run daily pipeline (ingest, then dbt)
 skinparam shadowing false
 hide footbox
 
@@ -32,6 +32,10 @@ end note
 
 system -> system : store raw day files (posts, comments)
 system -> system : load both into the warehouse
+system -> system : mark raw tables updated (Assets)
+
+== reddit_dbt, triggered by the Assets ==
+
 system -> system : check source freshness
 
 alt newest post or comment older than 72 h
