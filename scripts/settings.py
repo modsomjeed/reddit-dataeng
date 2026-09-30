@@ -1,5 +1,6 @@
-"""Connection settings shared by the pipeline scripts."""
+"""Connection settings and logging shared by the pipeline scripts."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -19,3 +20,12 @@ def read_env() -> dict[str, str]:
             key, _, value = line.partition("=")
             env[key.strip()] = value.strip()
     return {**env, **os.environ}
+
+
+def setup_logging() -> None:
+    # timestamps and levels, so Airflow task logs and terminal runs read the same way
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )

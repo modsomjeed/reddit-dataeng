@@ -68,7 +68,7 @@ def test_fetch_day_steps_forward_when_a_whole_page_shares_one_second(monkeypatch
     assert afters == [DAY_START, DAY_START + 1]
 
 
-def test_fetch_page_retries_when_the_archive_rejects_a_request(monkeypatch):
+def test_fetch_page_retries_when_the_archive_rejects_a_request(monkeypatch, caplog):
     responses = [
         urllib.error.HTTPError("url", 422, "Unprocessable Entity", {}, None),
         urllib.error.HTTPError("url", 422, "Unprocessable Entity", {}, None),
@@ -96,6 +96,8 @@ def test_fetch_page_retries_when_the_archive_rejects_a_request(monkeypatch):
 
     monkeypatch.setattr(extract_reddit.urllib.request, "urlopen", fake_urlopen)
     assert extract_reddit.fetch_page("posts", "dataengineering", DAY_START, DAY_END) == [item("ok", DAY_START)]
+    # each retry is logged as a warning, so it stands out in the Airflow task log
+    assert [r.levelname for r in caplog.records] == ["WARNING", "WARNING"]
 
 
 def test_fetch_page_gives_up_after_the_last_attempt(monkeypatch):

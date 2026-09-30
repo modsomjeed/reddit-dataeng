@@ -7,10 +7,13 @@ is missing. Both skip files that already match, so they are safe to rerun.
 """
 
 import argparse
+import logging
 from pathlib import Path
 
 from extract_reddit import ensure_bucket, s3_client
-from settings import ROOT, read_env
+from settings import ROOT, read_env, setup_logging
+
+log = logging.getLogger("backup")
 
 BACKUP_DIR = ROOT / "data" / "backup"
 
@@ -30,7 +33,7 @@ def backup(s3, bucket: str, target: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         s3.download_file(bucket, key, str(path))
         copied += 1
-    print(f"backup: {copied} copied, {skipped} already up to date → {target}")
+    log.info("%d copied, %d already up to date → %s", copied, skipped, target)
 
 
 def restore(s3, bucket: str, source: Path) -> None:
@@ -45,7 +48,7 @@ def restore(s3, bucket: str, source: Path) -> None:
             continue
         s3.upload_file(str(path), bucket, key, ExtraArgs={"ContentType": "application/json"})
         uploaded += 1
-    print(f"restore: {uploaded} uploaded, {skipped} already in s3://{bucket}")
+    log.info("%d uploaded, %d already in s3://%s", uploaded, skipped, bucket)
 
 
 def main() -> None:
@@ -54,6 +57,7 @@ def main() -> None:
     parser.add_argument("--folder", type=Path, help="local folder to use instead of data/backup/<bucket>")
     args = parser.parse_args()
 
+    setup_logging()
     env = read_env()
     s3 = s3_client(env)
     bucket = env["S3_BUCKET"]

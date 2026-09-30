@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import random
 import time
 import urllib.error
@@ -12,7 +13,9 @@ from datetime import UTC, date, datetime, timedelta
 import boto3
 from botocore.exceptions import ClientError
 
-from settings import read_env
+from settings import read_env, setup_logging
+
+log = logging.getLogger("extract")
 
 API_URL = "https://arctic-shift.photon-reddit.com/api/{kind}/search"
 KINDS = ("posts", "comments")
@@ -44,7 +47,7 @@ def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]
             if attempt == MAX_ATTEMPTS - 1:
                 raise
             wait = 5 * 2**attempt + random.random()
-            print(f"  {error}, retrying in {wait:.1f}s", flush=True)
+            log.warning("%s, retrying in %.1fs", error, wait)
             time.sleep(wait)
 
 
@@ -96,7 +99,7 @@ def object_exists(s3, bucket: str, key: str) -> bool:
 def extract_day(s3, bucket: str, kind: str, subreddit: str, day: date, force: bool) -> None:
     key = f"{kind}/{day.isoformat()}.json"
     if not force and object_exists(s3, bucket, key):
-        print(f"{day} {kind} already extracted, skipping", flush=True)
+        log.info("%s %s already extracted, skipping", day, kind)
         return
 
     items = fetch_day(kind, subreddit, day)
@@ -105,7 +108,7 @@ def extract_day(s3, bucket: str, kind: str, subreddit: str, day: date, force: bo
 
     body = json.dumps(items, ensure_ascii=False).encode()
     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-    print(f"{day}: {len(items)} {kind} → s3://{bucket}/{key}", flush=True)
+    log.info("%s: %d %s → s3://%s/%s", day, len(items), kind, bucket, key)
 
 
 def main() -> None:
@@ -117,6 +120,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="re-extract days that already have a file")
     args = parser.parse_args()
 
+    setup_logging()
     env = read_env()
     s3 = s3_client(env)
     ensure_bucket(s3, env["S3_BUCKET"])

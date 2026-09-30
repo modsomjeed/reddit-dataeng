@@ -2,11 +2,14 @@
 
 import argparse
 import base64
+import logging
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
 
-from settings import read_env
+from settings import read_env, setup_logging
+
+log = logging.getLogger("load")
 
 # ClickHouse reaches the bucket over the compose network, whichever machine runs this script
 CLICKHOUSE_S3_ENDPOINT = "http://rustfs:9000"
@@ -81,7 +84,7 @@ def load(env: dict[str, str], kind: str, key_pattern: str) -> None:
         access_key=quote(env["RUSTFS_ACCESS_KEY"]),
         secret_key=quote(env["RUSTFS_SECRET_KEY"]),
     ))
-    print(f"loaded {url}", flush=True)
+    log.info("loaded %s", url)
 
 
 def main() -> None:
@@ -91,6 +94,7 @@ def main() -> None:
     parser.add_argument("--end", type=date.fromisoformat, help="YYYY-MM-DD, inclusive; defaults to --start")
     args = parser.parse_args()
 
+    setup_logging()
     env = read_env()
     if args.start is None:
         load(env, args.kind, "*.json")
