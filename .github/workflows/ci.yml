@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.21"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest
+
+  pipeline:
+    name: Pipeline end to end (fixtures → RustFS → ClickHouse → dbt)
+    runs-on: ubuntu-latest
+    env:
+      # throwaway credentials that only exist inside this job
+      CLICKHOUSE_HOST: localhost
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ci-password
+      CLICKHOUSE_DASHBOARD_PASSWORD: ci-dashboard-password
+      RUSTFS_ACCESS_KEY: ci-access-key
+      RUSTFS_SECRET_KEY: ci-secret-key
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: reddit-raw
+      PII_HASH_SALT: ci-salt
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.9.4.3
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ci-password
+          CLICKHOUSE_DB: reddit
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+          CLICKHOUSE_DASHBOARD_PASSWORD: ci-dashboard-password
+        ports: ["8123:8123"]
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:8123/ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      # ClickHouse reaches the bucket as http://rustfs:9000 on the job network, as in compose
+      rustfs:
+        image: rustfs/rustfs:1.0.0
+        env:
+          RUSTFS_ACCESS_KEY: ci-access-key
+          RUSTFS_SECRET_KEY: ci-secret-key
+        ports: ["9000:9000"]
+        options: >-
+          --health-cmd "curl -sf http://localhost:9000/health"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.21"
+      - run: uv sync --frozen
+
+      - name: Wait for ClickHouse's native port
+        # the HTTP health check passes before clickhouse-client can connect
+        run: |
+          for i in $(seq 1 30); do
+            docker exec ${{ job.services.clickhouse.id }} \
+              clickhouse-client --password "$CLICKHOUSE_PASSWORD" -q "select 1" && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Create raw tables, role and dashboard user
+        run: |
+          docker exec -i ${{ job.services.clickhouse.id }} \
+            clickhouse-client --password "$CLICKHOUSE_PASSWORD" --multiquery < scripts/create_tables.sql
+          docker exec -i ${{ job.services.clickhouse.id }} bash -s < scripts/create_users.sh
+
+      - name: Put the fixtures in the raw bucket
+        run: uv run scripts/backup_raw.py restore --folder tests/fixtures/reddit-raw
+
+      - name: Load raw tables from the bucket
+        run: |
+          uv run scripts/load_clickhouse.py --kind posts
+          uv run scripts/load_clickhouse.py --kind comments
+
+      - name: Build and test the dbt models
+        working-directory: dbt/reddit
+        run: uv run dbt build --profiles-dir .
+
+      - name: Check the marts built from the fixtures
+        run: uv run pytest -m e2e
