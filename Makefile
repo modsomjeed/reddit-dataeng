@@ -15,7 +15,7 @@ AIRFLOW_PORT ?= 8082
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' Makefile | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 setup: ## Create .env from .env.example (never overwrites an existing .env)
 	@if [ -f .env ]; then echo ".env already exists, leaving it alone"; \
