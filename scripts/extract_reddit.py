@@ -7,7 +7,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import boto3
 from botocore.exceptions import ClientError
@@ -49,7 +49,7 @@ def fetch_page(kind: str, subreddit: str, after: int, before: int) -> list[dict]
 
 
 def fetch_day(kind: str, subreddit: str, day: date) -> list[dict]:
-    start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+    start = datetime(day.year, day.month, day.day, tzinfo=UTC)
     after = int(start.timestamp())
     day_end = int((start + timedelta(days=1)).timestamp())
     # A narrow time window (a few hours) makes the archive's comment search time out,

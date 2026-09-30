@@ -78,8 +78,9 @@ ai_last = share_in(flairs.assign(all="all"), last_window, "all", "ai_posts_in_ti
 comment_totals = comment_tools.drop_duplicates("month")[["month", "comments_in_month"]]
 ai_comment_monthly = comment_totals.merge(ai_comments, on="month", how="left").fillna({"ai_comments": 0})
 ai_comment_monthly["ai_share_pct"] = ai_comment_monthly["ai_comments"] / ai_comment_monthly["comments_in_month"] * 100
-ai_comments_first = share_in(ai_comment_monthly.assign(all="all"), first_window, "all", "ai_comments", "comments_in_month").iloc[0]
-ai_comments_last = share_in(ai_comment_monthly.assign(all="all"), last_window, "all", "ai_comments", "comments_in_month").iloc[0]
+all_comments = ai_comment_monthly.assign(all="all")
+ai_comments_first = share_in(all_comments, first_window, "all", "ai_comments", "comments_in_month").iloc[0]
+ai_comments_last = share_in(all_comments, last_window, "all", "ai_comments", "comments_in_month").iloc[0]
 
 # Each measure: the monthly per-tool table and the columns that hold mentions and the total.
 MEASURES = {
@@ -113,7 +114,11 @@ st.caption(
 )
 
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-kpi1.metric("Posts that mention AI in the title", f"{ai_last:.1f}%", f"{ai_last - ai_first:+.1f} pts vs {ai_first:.1f}%")
+kpi1.metric(
+    "Posts that mention AI in the title",
+    f"{ai_last:.1f}%",
+    f"{ai_last - ai_first:+.1f} pts vs {ai_first:.1f}%",
+)
 kpi2.metric(
     "Comments that mention AI",
     f"{ai_comments_last:.1f}%",
