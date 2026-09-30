@@ -12,7 +12,6 @@ import streamlit as st
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 NEUTRAL = "#c3c2b7"
 MUTED_INK = "#898781"
-WINDOW_MONTHS = 6
 DEFAULT_TOOLS = ["AI (general)", "Spark", "Airflow", "dbt"]
 
 st.set_page_config(page_title="AI and the DE stack", layout="wide")
@@ -33,101 +32,71 @@ def query(sql: str) -> pd.DataFrame:
     return client().query_df(sql)
 
 
+# All the numbers are computed and tested in dbt; the dashboard only selects and draws them.
+windows = query("select month, period from reddit_analytics.dim_comparison_windows order by month")
+ai_monthly = query("""
+    select month, measure, mentions_ai, total, share_pct
+    from reddit_analytics.mart_ai_share_by_month
+    order by month
+""")
+ai_change = query("select * from reddit_analytics.mart_ai_share_change").set_index("measure")
+tool_changes = query("select * from reddit_analytics.mart_tool_share_change")
+tool_changes["group"] = tool_changes["is_ai"].map({True: "AI tools", False: "Other tools"})
+flair_windows = query("select * from reddit_analytics.mart_ai_share_by_flair_window")
+# monthly per-tool series, for the compare-tools lines
 tools = query("""
-    select month, tool, category, posts_mentioning_in_title, posts_in_month, title_share_pct
+    select month, tool, posts_mentioning_in_title, title_share_pct
     from reddit_analytics.mart_tool_mentions_by_month
     order by month
 """)
-flairs = query("""
-    select month, flair, posts, ai_posts_in_title
-    from reddit_analytics.mart_ai_share_by_flair_month
-""")
 comment_tools = query("""
-    select month, tool, category, comments_mentioning, comments_in_month, share_pct
+    select month, tool, comments_mentioning, share_pct
     from reddit_analytics.mart_comment_tool_mentions_by_month
     order by month
 """)
-# a comment can mention several AI tools, so count distinct comments, not tool rows
-ai_comments = query("""
-    select toStartOfMonth(commented_at) as month, uniqExact(comment_id) as ai_comments
-    from reddit_analytics.fct_comment_tool_mentions
-    where category = 'ai'
-    group by month
-""")
-
-# The first and last months of the data are partial, so compare complete months only.
-months = sorted(tools["month"].unique())[1:-1]
-first_window, last_window = months[:WINDOW_MONTHS], months[-WINDOW_MONTHS:]
 
 
-def window_label(window) -> str:
-    return f"{pd.Timestamp(window[0]):%b %Y} – {pd.Timestamp(window[-1]):%b %Y}"
+def window_label(period: str) -> str:
+    months = windows.loc[windows["period"] == period, "month"]
+    return f"{pd.Timestamp(months.min()):%b %Y} – {pd.Timestamp(months.max()):%b %Y}"
 
 
-def share_in(df: pd.DataFrame, window, by: str, hits: str, total: str) -> pd.Series:
-    part = df[df["month"].isin(window)].groupby(by)[[hits, total]].sum()
-    return part[hits] / part[total] * 100
+first_label, last_label = window_label("first"), window_label("last")
+titles, comments = ai_change.loc["Post titles"], ai_change.loc["Comments"]
+title_tools = tool_changes[(tool_changes["measure"] == "Post titles") & ~tool_changes["is_ai"]]
+biggest_other = title_tools.loc[title_tools["change_pts"].abs().idxmax()]
+post_total = int(ai_monthly.loc[ai_monthly["measure"] == "Post titles", "total"].sum())
+comment_total = int(ai_monthly.loc[ai_monthly["measure"] == "Comments", "total"].sum())
 
-
-# AI share of all posts per month: posts with any AI tool in the title
-ai_monthly = flairs.groupby("month")[["ai_posts_in_title", "posts"]].sum().reset_index()
-ai_monthly["ai_share_pct"] = ai_monthly["ai_posts_in_title"] / ai_monthly["posts"] * 100
-ai_first = share_in(flairs.assign(all="all"), first_window, "all", "ai_posts_in_title", "posts").iloc[0]
-ai_last = share_in(flairs.assign(all="all"), last_window, "all", "ai_posts_in_title", "posts").iloc[0]
-
-comment_totals = comment_tools.drop_duplicates("month")[["month", "comments_in_month"]]
-ai_comment_monthly = comment_totals.merge(ai_comments, on="month", how="left").fillna({"ai_comments": 0})
-ai_comment_monthly["ai_share_pct"] = ai_comment_monthly["ai_comments"] / ai_comment_monthly["comments_in_month"] * 100
-all_comments = ai_comment_monthly.assign(all="all")
-ai_comments_first = share_in(all_comments, first_window, "all", "ai_comments", "comments_in_month").iloc[0]
-ai_comments_last = share_in(all_comments, last_window, "all", "ai_comments", "comments_in_month").iloc[0]
-
-# Each measure: the monthly per-tool table and the columns that hold mentions and the total.
+# Each measure: the monthly per-tool table, its mention and share columns, and axis labels.
 MEASURES = {
-    "Post titles": (tools, "posts_mentioning_in_title", "posts_in_month", "title_share_pct", "% of titles", "Posts"),
-    "Comments": (comment_tools, "comments_mentioning", "comments_in_month", "share_pct", "% of comments", "Comments"),
+    "Post titles": (tools, "posts_mentioning_in_title", "title_share_pct", "% of titles", "Posts"),
+    "Comments": (comment_tools, "comments_mentioning", "share_pct", "% of comments", "Comments"),
 }
-
-
-def tool_change(df: pd.DataFrame, hits: str, total: str) -> pd.DataFrame:
-    out = pd.DataFrame({
-        "first": share_in(df, first_window, "tool", hits, total),
-        "last": share_in(df, last_window, "tool", hits, total),
-    })
-    out["change_pts"] = out["last"] - out["first"]
-    out = out.join(df.drop_duplicates("tool").set_index("tool")["category"]).reset_index()
-    out["group"] = out["category"].map(lambda c: "AI tools" if c == "ai" else "Other tools")
-    return out
-
-
-title_change = tool_change(tools, "posts_mentioning_in_title", "posts_in_month")
-other_tools = title_change[title_change["group"] == "Other tools"]
-biggest_other = other_tools.loc[other_tools["change_pts"].abs().idxmax()]
 
 # --- Header and headline numbers -------------------------------------------------
 
 st.title("Is AI replacing the data engineering stack?")
 st.caption(
-    f"r/dataengineering, {int(flairs['posts'].sum()):,} posts and "
-    f"{int(comment_totals['comments_in_month'].sum()):,} comments · "
-    f"comparing {window_label(first_window)} with {window_label(last_window)}"
+    f"r/dataengineering, {post_total:,} posts and {comment_total:,} comments · "
+    f"comparing {first_label} with {last_label}"
 )
 
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 kpi1.metric(
     "Posts that mention AI in the title",
-    f"{ai_last:.1f}%",
-    f"{ai_last - ai_first:+.1f} pts vs {ai_first:.1f}%",
+    f"{titles['last_share_pct']:.1f}%",
+    f"{titles['change_pts']:+.1f} pts vs {titles['first_share_pct']:.1f}%",
 )
 kpi2.metric(
     "Comments that mention AI",
-    f"{ai_comments_last:.1f}%",
-    f"{ai_comments_last - ai_comments_first:+.1f} pts vs {ai_comments_first:.1f}%",
+    f"{comments['last_share_pct']:.1f}%",
+    f"{comments['change_pts']:+.1f} pts vs {comments['first_share_pct']:.1f}%",
 )
 kpi3.metric(
     "Growth in AI conversation",
-    f"×{ai_comments_last / ai_comments_first:.1f}",
-    f"×{ai_last / ai_first:.1f} in titles",
+    f"×{comments['growth_ratio']:.1f}",
+    f"×{titles['growth_ratio']:.1f} in titles",
     delta_color="off",
 )
 kpi4.metric(
@@ -146,15 +115,10 @@ st.markdown(
 
 st.subheader("AI share of the conversation, by month")
 st.caption("Two independent measures agree: post titles and comment text")
-ai_both = pd.concat([
-    ai_monthly.assign(measure="Post titles", mentions=ai_monthly["ai_posts_in_title"], total=ai_monthly["posts"]),
-    ai_comment_monthly.assign(measure="Comments", mentions=ai_comment_monthly["ai_comments"],
-                              total=ai_comment_monthly["comments_in_month"]),
-])[["month", "measure", "ai_share_pct", "mentions", "total"]]
 hover = alt.selection_point(fields=["month"], nearest=True, on="pointerover", empty=False)
-base = alt.Chart(ai_both).encode(
+base = alt.Chart(ai_monthly).encode(
     x=alt.X("month:T", title=None, axis=alt.Axis(format="%b %Y", grid=False)),
-    y=alt.Y("ai_share_pct:Q", title="% mentioning AI", axis=alt.Axis(gridColor="#e1e0d9")),
+    y=alt.Y("share_pct:Q", title="% mentioning AI", axis=alt.Axis(gridColor="#e1e0d9")),
     color=alt.Color("measure:N", scale=alt.Scale(domain=["Post titles", "Comments"], range=SERIES[:2]),
                     legend=alt.Legend(title=None, orient="bottom")),
 )
@@ -166,8 +130,8 @@ trend = alt.layer(
         tooltip=[
             alt.Tooltip("month:T", title="Month", format="%b %Y"),
             alt.Tooltip("measure:N", title="Measure"),
-            alt.Tooltip("ai_share_pct:Q", title="AI share %", format=".1f"),
-            alt.Tooltip("mentions:Q", title="Mentioning AI"),
+            alt.Tooltip("share_pct:Q", title="AI share %", format=".1f"),
+            alt.Tooltip("mentions_ai:Q", title="Mentioning AI"),
             alt.Tooltip("total:Q", title="All"),
         ]
     ).transform_filter(hover),
@@ -182,14 +146,14 @@ st.altair_chart(trend, use_container_width=True)
 # --- Which tools moved -----------------------------------------------------------
 
 measure = st.radio("Measure tool mentions in", list(MEASURES), horizontal=True)
-df, hits, total, share_col, share_title, count_title = MEASURES[measure]
-change = tool_change(df, hits, total)
+df, hits, share_col, share_title, count_title = MEASURES[measure]
+change = tool_changes[tool_changes["measure"] == measure]
 
 left, right = st.columns(2)
 
 with left:
     st.subheader(f"Change in share of {measure.lower()}, per tool")
-    st.caption(f"{window_label(last_window)} minus {window_label(first_window)}, percentage points")
+    st.caption(f"{last_label} minus {first_label}, percentage points")
     bars = alt.Chart(change).mark_bar(cornerRadiusEnd=4, height=10).encode(
         x=alt.X("change_pts:Q", title="pts", axis=alt.Axis(gridColor="#e1e0d9")),
         # every tool gets a label; Vega-Lite would otherwise drop overlapping ones
@@ -201,8 +165,8 @@ with left:
         ),
         tooltip=[
             alt.Tooltip("tool:N", title="Tool"),
-            alt.Tooltip("first:Q", title=f"{window_label(first_window)} %", format=".1f"),
-            alt.Tooltip("last:Q", title=f"{window_label(last_window)} %", format=".1f"),
+            alt.Tooltip("first_share_pct:Q", title=f"{first_label} %", format=".1f"),
+            alt.Tooltip("last_share_pct:Q", title=f"{last_label} %", format=".1f"),
             alt.Tooltip("change_pts:Q", title="Change (pts)", format="+.1f"),
         ],
     ).properties(height=35 * 22)
@@ -212,12 +176,10 @@ with right:
     st.subheader("Where AI shows up")
     st.caption("Share of titles mentioning AI, per flair")
     main_flairs = ["Discussion", "Help", "Career", "Blog", "Personal Project Showcase", "Open Source"]
-    by_flair = flairs[flairs["flair"].isin(main_flairs)]
-    dumbbell = pd.DataFrame({
-        window_label(first_window): share_in(by_flair, first_window, "flair", "ai_posts_in_title", "posts"),
-        window_label(last_window): share_in(by_flair, last_window, "flair", "ai_posts_in_title", "posts"),
-    }).reset_index().melt("flair", var_name="period", value_name="ai_share_pct")
-    periods = [window_label(first_window), window_label(last_window)]
+    periods = [first_label, last_label]
+    dumbbell = flair_windows[flair_windows["flair"].isin(main_flairs)].assign(
+        period=lambda d: d["period"].map({"first": first_label, "last": last_label})
+    ).rename(columns={"ai_title_share_pct": "ai_share_pct"})
     order = dumbbell[dumbbell["period"] == periods[1]].sort_values("ai_share_pct", ascending=False)["flair"].tolist()
     y = alt.Y("flair:N", sort=order, title=None, axis=alt.Axis(labelLimit=200))
     dots = alt.layer(
@@ -270,10 +232,10 @@ if picked:
 
 with st.expander("Data table"):
     st.dataframe(
-        change.sort_values("change_pts", ascending=False)
-        .rename(columns={"first": f"{window_label(first_window)} %", "last": f"{window_label(last_window)} %",
-                         "change_pts": "change (pts)"})
-        .drop(columns="group"),
+        change.sort_values("change_pts", ascending=False)[
+            ["tool", "category", "first_share_pct", "last_share_pct", "change_pts"]
+        ].rename(columns={"first_share_pct": f"{first_label} %", "last_share_pct": f"{last_label} %",
+                          "change_pts": "change (pts)"}),
         hide_index=True,
         use_container_width=True,
     )
