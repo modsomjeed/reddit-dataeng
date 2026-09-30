@@ -36,10 +36,10 @@ top of storage, and every stage leans on the same undercurrents.
 |---|---|
 | Security | Secrets only in `.env`, services bound to 127.0.0.1, read-only dashboard user |
 | Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits, raw-bucket backup and restore |
-| DataOps | dbt tests, source freshness gate, retries with backoff, idempotent reloads |
+| DataOps | dbt tests, source freshness gate, retries with backoff, idempotent reloads, raw-bucket backup, and CI that runs the whole pipeline on fixtures |
 | Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
 | Orchestration | Airflow 3: a daily ingest DAG and an Asset-triggered dbt DAG |
-| Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose |
+| Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose, pinned image versions, ruff and pytest |
 
 ## Getting started
 
@@ -105,12 +105,30 @@ Run `make` (or `make help`) to list them:
 | `make backup-raw` | Copy the raw bucket to `data/backup/` (new or changed files only) |
 | `make restore-raw` | Upload files from `data/backup/` that the raw bucket is missing |
 | `make load [KIND=…]` | Load every raw posts (default) or comments file from RustFS into ClickHouse |
+| `make lint` | Lint the Python code with ruff |
+| `make test` | Run the unit tests |
 | `make dbt-build` | Build and test all dbt models |
 | `make dbt-docs` | Generate dbt docs and serve them on port 8081 |
 | `make bootstrap` | First run: `setup`, `up`, backfill and load posts and comments, then `dbt-build` |
 | `make ingest-test DAY=…` | Run the `reddit_ingest` DAG once for one day (extract and load only) |
 | `make dbt-test` | Run the `reddit_dbt` DAG once (source freshness, then dbt build) |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
+
+## Tests and CI
+
+    make lint    # ruff
+    make test    # unit tests for the extract, load and backup scripts (no network)
+
+[GitHub Actions](.github/workflows/ci.yml) runs two jobs on every push and pull request to `main`:
+
+| Job | What it does |
+|---|---|
+| Lint and unit tests | `ruff check` and `pytest` |
+| Pipeline end to end | Starts ClickHouse and RustFS as service containers, creates the tables and the read-only user, uploads the synthetic fixtures in [`tests/fixtures/`](tests/fixtures/) to the bucket, loads them with the real loader, runs `dbt build` (all 45 tests) and then checks the marts with `pytest -m e2e` |
+
+The fixtures are made up, not real Reddit data. They cover the cases that broke once: multi-word
+tool names, "SQL Server Agent" not counting as an AI agent, removed and held posts, AutoModerator
+comments and deleted accounts.
 
 ## What's inside
 
@@ -120,6 +138,8 @@ Run `make` (or `make help`) to list them:
 | `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG |
 | `dbt/reddit/` | Staging, facts and marts for posts and comments, the `tools` seed, macros and 45 tests |
 | `dashboard/` | Streamlit dashboard for a DE lead |
+| `tests/` | Unit tests, synthetic fixtures and end-to-end checks |
+| `.github/workflows/` | CI: lint, unit tests and the pipeline end to end |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
 | `docs/dashboard/story.md` | User, empathy map, GAME and SCQA, designed before the dashboard |
 | `docs/governance.md` | PII, access control, freshness and known data limits |
