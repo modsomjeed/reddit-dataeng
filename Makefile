@@ -1,4 +1,5 @@
 DIAGRAMS_DIR := docs/architecture/diagrams
+PLANTUML     := plantuml/plantuml:1.2026.8
 DBT_DIR      := dbt/reddit
 DBT          := cd $(DBT_DIR) && uv run --env-file ../../.env dbt
 START        ?= 2024-09-25
@@ -66,4 +67,4 @@ dbt-test: ## Run the reddit_dbt DAG once (source freshness, then dbt build) insi
 	docker exec airflow-scheduler airflow dags test reddit_dbt
 
 diagrams: ## Render every PlantUML diagram to SVG
-	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data plantuml/plantuml:latest -tsvg "/data/*.puml"
+	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data $(PLANTUML) -tsvg "/data/*.puml"
