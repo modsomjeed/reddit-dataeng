@@ -6,3 +6,25 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.102",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["dbt", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# the scripts import each other as top-level modules (as they do when run directly)
+pythonpath = ["scripts", "airflow/dags"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["settings", "extract_reddit", "load_clickhouse", "backup_raw", "reddit_assets"]
