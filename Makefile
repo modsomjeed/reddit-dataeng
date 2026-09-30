@@ -6,6 +6,10 @@ START        ?= 2024-09-25
 END          ?= 2026-09-24
 KIND         ?= posts
 
+# ports and credentials for the URLs printed by `make ps`
+-include .env
+AIRFLOW_PORT ?= 8082
+
 .DEFAULT_GOAL := help
 .PHONY: help setup up down ps logs backfill load backup-raw restore-raw dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
 
@@ -27,7 +31,7 @@ down: ## Stop every service (data volumes are kept)
 ps: ## Show service status and URLs
 	@docker compose ps --format 'table {{.Name}}\t{{.Status}}'
 	@echo "\n  Dashboard       http://localhost:8501"
-	@echo "  Airflow         http://localhost:8080  (airflow / airflow)"
+	@echo "  Airflow         http://localhost:$(AIRFLOW_PORT)  (airflow / airflow)"
 	@echo "  RustFS console  http://localhost:9001/rustfs/console/"
 
 logs: ## Follow logs, e.g. make logs SERVICE=airflow-scheduler

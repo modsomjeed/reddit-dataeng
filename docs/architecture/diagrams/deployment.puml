@@ -44,7 +44,7 @@ rfs -- vrfs
 pgdb -- vpg
 scheds -- vlogs
 
-browser --> apis : "HTTP 127.0.0.1:8080"
+browser --> apis : "HTTP 127.0.0.1:8082"
 browser --> dashs : "HTTP 127.0.0.1:8501"
 dashs --> chs : "HTTP clickhouse:8123 (marts only)"
 browser --> rfs : "HTTP 127.0.0.1:9001 (console)"

@@ -86,7 +86,7 @@ for a shorter range. `make bootstrap` runs steps 2–4 in one go.
 | What | Where |
 |---|---|
 | Dashboard | http://localhost:8501 |
-| Airflow (airflow / airflow) | http://localhost:8080 — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
+| Airflow (airflow / airflow) | http://localhost:8082 (`AIRFLOW_PORT` in `.env`) — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
 | RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
 | dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
 
