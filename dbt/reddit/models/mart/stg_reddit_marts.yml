@@ -127,3 +127,67 @@ models:
         description: "Human comments with text that month (AutoModerator and removed comments excluded)."
       - name: share_pct
         description: "comments_mentioning / comments_in_month × 100."
+
+  - name: dim_comparison_windows
+    description: "The months in the two periods the dashboard compares: the first and the last N complete months (var comparison_window_months). The first and last months of the data are partial and left out."
+    columns:
+      - name: month
+        description: "First day of the month (UTC)."
+        tests: [not_null, unique]
+      - name: period
+        description: "'first' or 'last'."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['first', 'last']
+
+  - name: mart_ai_share_by_month
+    description: "One row per (month, measure): share of post titles, or of human comments with text, that mention any AI tool."
+    columns:
+      - name: measure
+        description: "'Post titles' or 'Comments'."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Post titles', 'Comments']
+      - name: mentions_ai
+        description: "Posts whose title, or comments whose text, mention an ai-category tool (a comment counts once)."
+      - name: total
+        description: "All posts, or all human comments with text, that month."
+      - name: share_pct
+        description: "mentions_ai / total × 100."
+
+  - name: mart_ai_share_change
+    description: "One row per measure: AI share in the first vs the last comparison window. Feeds the dashboard's headline numbers."
+    columns:
+      - name: measure
+        description: "'Post titles' or 'Comments'."
+        tests: [not_null, unique]
+      - name: change_pts
+        description: "last_share_pct − first_share_pct, in percentage points."
+      - name: growth_ratio
+        description: "last_share_pct / first_share_pct."
+
+  - name: mart_tool_share_change
+    description: "One row per (tool, measure): the tool's share in the first vs the last comparison window."
+    columns:
+      - name: tool
+        description: "Tool from the tools seed."
+        tests: [not_null]
+      - name: is_ai
+        description: "True for ai-category tools; the dashboard colours these."
+      - name: change_pts
+        description: "last_share_pct − first_share_pct, in percentage points."
+
+  - name: mart_ai_share_by_flair_window
+    description: "One row per (flair, period): share of post titles mentioning AI in each comparison window."
+    columns:
+      - name: flair
+        description: "Post flair; 'No flair' when the post has none."
+        tests: [not_null]
+      - name: period
+        description: "'first' or 'last'."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['first', 'last']
