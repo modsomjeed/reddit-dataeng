@@ -46,9 +46,10 @@ How this project handles personal data, access, freshness and known data-quality
 - Source freshness on `created_utc` of both `reddit.posts` and `reddit.comments`: warn after 36 h,
   error after 72 h. It is the first task of the `reddit_dbt` DAG, so a stalled archive stops the
   rebuild instead of refreshing the marts on stale data.
-- 45 dbt tests: keys unique and not null, relationships between facts and staging/seed, accepted
+- 64 dbt tests: keys unique and not null, relationships between facts and staging/seed, accepted
   values, grain uniqueness, a guard against the multi-word matching bug, title ≤ total mentions,
-  and a guard that a null comment body always means a removed one. The comment → post relationship
+  a guard that a null comment body always means a removed one, shares that must be percentages,
+  and comparison windows that hold at most N months. The comment → post relationship
   is a warning: about 900 comments (0.4%) belong to posts made before the extraction window.
 
 ## Known data limitations

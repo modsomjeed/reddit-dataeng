@@ -26,9 +26,9 @@ top of storage, and every stage leans on the same undercurrents.
 | Generation | Reddit r/dataengineering posts and comments, read through the Arctic Shift archive | [`scripts/extract_reddit.py`](scripts/extract_reddit.py) |
 | Ingestion | Daily batch: extract a day to RustFS, then ClickHouse loads it with `s3()`; idempotent and backfillable | [`scripts/`](scripts/), [`reddit_ingest`](airflow/dags/reddit_ingest.py) |
 | Storage | RustFS data lake (raw JSON, one file per day) and ClickHouse warehouse (raw → staging → marts) | [`docker-compose.yml`](docker-compose.yml), [`scripts/create_tables.sql`](scripts/create_tables.sql) |
-| Transformation | dbt staging, facts and marts, a `tools` seed and 45 tests; runs when both raw tables have new data | [`dbt/reddit/`](dbt/reddit/), [`reddit_dbt`](airflow/dags/reddit_dbt.py) |
+| Transformation | dbt staging, facts and marts, a `tools` seed and 64 tests; the comparison windows and every share the dashboard shows are computed here; runs when both raw tables have new data | [`dbt/reddit/`](dbt/reddit/), [`reddit_dbt`](airflow/dags/reddit_dbt.py) |
 | Serving | Marts granted to a read-only `analyst` role | [`scripts/create_users.sh`](scripts/create_users.sh) |
-| Analytics | Streamlit dashboard for a DE lead | [`dashboard/`](dashboard/) |
+| Analytics | Streamlit dashboard for a DE lead; it only selects from marts, no calculations of its own | [`dashboard/`](dashboard/) |
 | Machine learning | Not covered yet | — |
 | Reverse ETL | Not covered yet | — |
 
@@ -75,7 +75,7 @@ dashboard. On first start ClickHouse creates the raw table, the `analyst` role a
     make backfill KIND=comments    # comments: about 250k, the first run takes a few hours
     make load                      # posts: RustFS → ClickHouse raw table
     make load KIND=comments        # comments: RustFS → ClickHouse raw table
-    make dbt-build                 # staging, facts and marts, plus 45 tests
+    make dbt-build                 # staging, facts and marts, plus 64 tests
 
 Every step is safe to rerun: `backfill` skips days already in RustFS, `load` doesn't create
 duplicates, and dbt rebuilds the models. Use `make backfill START=2026-09-01 END=2026-09-24`
@@ -124,7 +124,7 @@ Run `make` (or `make help`) to list them:
 | Job | What it does |
 |---|---|
 | Lint and unit tests | `ruff check` and `pytest` |
-| Pipeline end to end | Starts ClickHouse and RustFS as service containers, creates the tables and the read-only user, uploads the synthetic fixtures in [`tests/fixtures/`](tests/fixtures/) to the bucket, loads them with the real loader, runs `dbt build` (all 45 tests) and then checks the marts with `pytest -m e2e` |
+| Pipeline end to end | Starts ClickHouse and RustFS as service containers, creates the tables and the read-only user, uploads the synthetic fixtures in [`tests/fixtures/`](tests/fixtures/) to the bucket, loads them with the real loader, runs `dbt build` (all 64 tests, with one-month comparison windows to fit the four months of fixtures) and then checks the marts with `pytest -m e2e` |
 
 The fixtures are made up, not real Reddit data. They cover the cases that broke once: multi-word
 tool names, "SQL Server Agent" not counting as an AI agent, removed and held posts, AutoModerator
@@ -136,8 +136,8 @@ comments and deleted accounts.
 |---|---|
 | `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; ClickHouse init scripts |
 | `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG |
-| `dbt/reddit/` | Staging, facts and marts for posts and comments, the `tools` seed, macros and 45 tests |
-| `dashboard/` | Streamlit dashboard for a DE lead |
+| `dbt/reddit/` | Staging, facts and marts for posts and comments (including the dashboard's comparison marts), the `tools` seed, macros and 64 tests |
+| `dashboard/` | Streamlit dashboard for a DE lead, reading the marts as the read-only `dashboard` user |
 | `tests/` | Unit tests, synthetic fixtures and end-to-end checks |
 | `.github/workflows/` | CI: lint, unit tests and the pipeline end to end |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
