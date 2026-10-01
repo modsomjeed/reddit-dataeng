@@ -66,12 +66,13 @@ def rustfs(page: Page) -> None:
 
 
 def mailpit(page: Page) -> None:
-    # run `make alert-test` first so the inbox has an alert in it
-    page.goto(f"http://{HOST}:{os.environ.get('MAILPIT_PORT', '8025')}/", wait_until="networkidle")
-    page.locator(".message").first.click()
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(2_000)
-    save(page, "mailpit-alert.png")
+    # run `make alert-test` and `make digest-test` first so the inbox has one of each
+    for name, subject in (("mailpit-alert.png", "failed"), ("mailpit-digest.png", "digest")):
+        page.goto(f"http://{HOST}:{os.environ.get('MAILPIT_PORT', '8025')}/", wait_until="networkidle")
+        page.locator(".message", has_text=subject).first.click()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(2_000)
+        save(page, name)
 
 
 def main() -> None:

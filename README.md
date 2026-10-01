@@ -23,7 +23,7 @@ Python · Airflow 3 · RustFS (S3) · ClickHouse · dbt · Streamlit · Docker C
 | Airflow | Daily `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG | http://localhost:8082 |
 | dbt | Staging, facts and marts, the `tools` seed and 64 tests | `make dbt-docs` → http://localhost:8081 |
 | Streamlit | Dashboard, reading marts as the read-only `dashboard` user | http://localhost:8501 |
-| Mailpit | Local inbox for failure alerts from Airflow | http://localhost:8025 |
+| Mailpit | Local inbox for failure alerts and the weekly digest | http://localhost:8025 |
 
 The full design is in the [4+1 View Model](docs/architecture/).
 
@@ -44,7 +44,7 @@ top of storage, and every stage leans on the same undercurrents.
 | Serving | Marts granted to a read-only `analyst` role | [`scripts/create_users.sh`](scripts/create_users.sh) |
 | Analytics | Streamlit dashboard for a DE lead; it only selects from marts, no calculations of its own | [`dashboard/`](dashboard/) |
 | Machine learning | Not covered yet | — |
-| Reverse ETL | Not covered yet | — |
+| Reverse ETL | A weekly digest email to the DE lead, built from the marts by the `reddit_digest` DAG | [`scripts/send_digest.py`](scripts/send_digest.py), [`reddit_digest`](airflow/dags/reddit_digest.py) |
 
 | Undercurrent | In this project |
 |---|---|
@@ -52,7 +52,7 @@ top of storage, and every stage leans on the same undercurrents.
 | Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits, raw-bucket backup and restore |
 | DataOps | dbt tests, source freshness gate, retries with backoff, email alerts on failed tasks, idempotent reloads, raw-bucket backup, and CI that runs the whole pipeline on fixtures |
 | Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
-| Orchestration | Airflow 3: a daily ingest DAG, an Asset-triggered dbt DAG, and an `alert_check` DAG that tests the alert path |
+| Orchestration | Airflow 3: a daily ingest DAG, an Asset-triggered dbt DAG, a weekly digest DAG, and an `alert_check` DAG that tests the alert path |
 | Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose, pinned image versions, ruff and pytest |
 
 ## Features
@@ -64,6 +64,8 @@ top of storage, and every stage leans on the same undercurrents.
   source freshness check stops it on stale data.
 - **Failure alerts:** a task that still fails after its retries sends an email with the error
   and a link to its log.
+- **Weekly digest (reverse ETL):** every Monday the DE lead gets the headline numbers and the
+  biggest tool moves by email, without opening the dashboard.
 - **Tested models:** 64 dbt tests, unit tests for the scripts, and CI that runs the whole
   pipeline on synthetic fixtures.
 - **Governed serving:** usernames are pseudonymised and the dashboard can read marts only.
@@ -120,7 +122,7 @@ When the backfill is done, the `reddit-raw` bucket holds one file per day for po
 | What | Where |
 |---|---|
 | Dashboard | http://localhost:8501 |
-| Failure alerts (Mailpit) | http://localhost:8025 |
+| Failure alerts and weekly digest (Mailpit) | http://localhost:8025 |
 | Airflow (airflow / airflow) | http://localhost:8082 (`AIRFLOW_PORT` in `.env`) — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
 | RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
 | dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
@@ -135,8 +137,13 @@ in Mailpit; `make alert-test` runs the `alert_check` DAG, which fails on purpose
 
 ![Mailpit: failure alert](docs/images/mailpit-alert.png)
 
-To send alerts to a real inbox, point `ALERT_SMTP_HOST`, `ALERT_SMTP_PORT` and `ALERT_EMAIL_TO`
-at your mail server.
+Every Monday at 06:00 UTC, `reddit_digest` reads the marts as the read-only `dashboard` user and
+emails the DE lead a short digest; `make digest-test` sends one now:
+
+![Mailpit: weekly digest](docs/images/mailpit-digest.png)
+
+To send alerts and the digest to a real inbox, point `SMTP_HOST`, `SMTP_PORT`, `ALERT_EMAIL_TO`
+and `DIGEST_EMAIL_TO` at your mail server.
 
 `make screenshots` captures these images again from the running stack.
 
@@ -163,6 +170,7 @@ Run `make` (or `make help`) to list them:
 | `make ingest-test DAY=…` | Run the `reddit_ingest` DAG once for one day (extract and load only) |
 | `make dbt-test` | Run the `reddit_dbt` DAG once (source freshness, then dbt build) |
 | `make alert-test` | Run the `alert_check` DAG once; a failure email should appear in Mailpit |
+| `make digest-test` | Run the `reddit_digest` DAG once; the weekly digest should appear in Mailpit |
 | `make screenshots [SHOTS=…]` | Capture the README screenshots from the running stack into `docs/images/` |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
 
@@ -211,7 +219,7 @@ the daily DAGs are running, and all 64 dbt tests pass.
 ## Tests and CI
 
     make lint    # ruff
-    make test    # unit tests for the extract, load and backup scripts and the alert email (no network)
+    make test    # unit tests for the scripts, the alert and the digest (no network)
 
 [GitHub Actions](.github/workflows/ci.yml) runs two jobs on every push and pull request to `main`:
 
@@ -228,11 +236,11 @@ comments and deleted accounts.
 
 | Path | What |
 |---|---|
-| `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; ClickHouse init scripts |
-| `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG, the Asset-triggered `reddit_dbt` DAG, failure alerts and the `alert_check` DAG |
+| `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; send the weekly digest; ClickHouse init scripts |
+| `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG, the Asset-triggered `reddit_dbt` DAG, the weekly `reddit_digest` DAG, failure alerts and the `alert_check` DAG |
 | `dbt/reddit/` | Staging, facts and marts for posts and comments (including the dashboard's comparison marts), the `tools` seed, macros and 64 tests |
 | `dashboard/` | Streamlit dashboard for a DE lead, reading the marts as the read-only `dashboard` user |
-| `tests/` | Unit tests (including the alert email), synthetic fixtures and end-to-end checks |
+| `tests/` | Unit tests (including the alert and digest emails), synthetic fixtures and end-to-end checks |
 | `.github/workflows/` | CI: lint, unit tests and the pipeline end to end |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
 | `docs/images/` | README screenshots, captured by `make screenshots` |

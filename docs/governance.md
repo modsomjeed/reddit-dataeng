@@ -29,6 +29,8 @@ How this project handles personal data, access, freshness and known data-quality
   (`+grants` in `dbt_project.yml`).
 - Checked as `dashboard`: reading marts works; reading staging or raw, and any `INSERT`, fail with
   `ACCESS_DENIED`.
+- The weekly digest (reverse ETL) also reads the marts as `dashboard`, so an email can never
+  show more than the dashboard does, and it only carries aggregate shares.
 - The pipeline (Airflow, dbt, loader) uses the admin user from `.env`; credentials never live in the repo.
 
 ## Backup and restore

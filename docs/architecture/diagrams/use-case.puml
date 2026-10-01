@@ -22,6 +22,8 @@ rectangle "Reddit Data Platform" {
   usecase "UC4 Explore AI impact (Q1)" as uc4
   usecase "UC5 Browse lineage and data docs" as uc5
   usecase "UC6 Read the AI-and-stack dashboard" as uc6
+  usecase "UC7 Receive the weekly digest\n(reverse ETL)" as uc7
+  usecase "UC8 Get alerted when a task fails" as uc8
 }
 
 scheduler --> uc1
@@ -31,6 +33,10 @@ analyst --> uc3
 analyst --> uc4
 analyst --> uc5
 lead --> uc6
+scheduler --> uc7
+lead --> uc7
+de --> uc8
+uc1 ..> uc8 : <<extend>>
 
 uc1 ..> ucDay : <<include>>
 uc2 ..> ucDay : <<include>>
