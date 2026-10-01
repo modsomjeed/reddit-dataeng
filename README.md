@@ -9,11 +9,24 @@ that mention AI went from 4.5% to 13.2% (also ×2.9). AI spread into Help and Di
 non-AI tool moved more than 0.9 points in titles, so AI is being added on top of the existing
 stack, not replacing it.
 
-## Stack
+![Dashboard overview](docs/images/dashboard-overview.png)
+
+## Architecture
 
 Python · Airflow 3 · RustFS (S3) · ClickHouse · dbt · Streamlit · Docker Compose · PlantUML
 
-## Data engineering lifecycle
+| Component | Role | Local URL |
+|---|---|---|
+| Arctic Shift | Archive of Reddit posts and comments, the data source | — |
+| RustFS | S3 data lake: raw JSON, one file per day and kind | http://localhost:9001/rustfs/console/ |
+| ClickHouse | Warehouse: raw tables, dbt staging views and mart tables | http://localhost:8123 |
+| Airflow | Daily `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG | http://localhost:8082 |
+| dbt | Staging, facts and marts, the `tools` seed and 64 tests | `make dbt-docs` → http://localhost:8081 |
+| Streamlit | Dashboard, reading marts as the read-only `dashboard` user | http://localhost:8501 |
+
+The full design is in the [4+1 View Model](docs/architecture/).
+
+### Data engineering lifecycle
 
 The project follows the data engineering lifecycle from *Fundamentals of Data Engineering*
 (Reis & Housley): data moves from generation through ingestion, transformation and serving, on
@@ -40,6 +53,18 @@ top of storage, and every stage leans on the same undercurrents.
 | Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
 | Orchestration | Airflow 3: a daily ingest DAG and an Asset-triggered dbt DAG |
 | Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose, pinned image versions, ruff and pytest |
+
+## Features
+
+- **Two years of history:** about 28k posts and 235k comments, backfilled from the archive and
+  kept up to date by a daily run.
+- **Idempotent ingestion:** every day can be re-extracted and reloaded without duplicates.
+- **Event-driven transformation:** `reddit_dbt` runs when both raw tables have new data, and a
+  source freshness check stops it on stale data.
+- **Tested models:** 64 dbt tests, unit tests for the scripts, and CI that runs the whole
+  pipeline on synthetic fixtures.
+- **Governed serving:** usernames are pseudonymised and the dashboard can read marts only.
+- **Story-first dashboard:** every number on it is computed in dbt.
 
 ## Getting started
 
@@ -69,6 +94,8 @@ This builds the Airflow and dashboard images and starts ClickHouse, RustFS, Airf
 dashboard. On first start ClickHouse creates the raw table, the `analyst` role and the
 `dashboard` user. `make ps` shows status and URLs at any time.
 
+![Airflow: reddit_ingest DAG](docs/images/airflow-reddit_ingest.png)
+
 ### Step 4 — Load two years of posts and comments
 
     make backfill                  # posts: Arctic Shift → RustFS, one file per day
@@ -81,6 +108,10 @@ Every step is safe to rerun: `backfill` skips days already in RustFS, `load` doe
 duplicates, and dbt rebuilds the models. Use `make backfill START=2026-09-01 END=2026-09-24`
 for a shorter range. `make bootstrap` runs steps 2–4 in one go.
 
+When the backfill is done, the `reddit-raw` bucket holds one file per day for posts and comments:
+
+![RustFS: reddit-raw bucket](docs/images/rustfs-console.png)
+
 ### Step 5 — Look at the results
 
 | What | Where |
@@ -89,6 +120,13 @@ for a shorter range. `make bootstrap` runs steps 2–4 in one go.
 | Airflow (airflow / airflow) | http://localhost:8082 (`AIRFLOW_PORT` in `.env`) — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
 | RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
 | dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
+
+After each ingest run, `reddit_dbt` checks source freshness and then runs `dbt build`. The red
+bar is an early failed run; the runs after it passed:
+
+![Airflow: reddit_dbt DAG](docs/images/airflow-reddit_dbt.png)
+
+`make screenshots` captures these images again from the running stack.
 
 ### All commands
 
@@ -112,7 +150,50 @@ Run `make` (or `make help`) to list them:
 | `make bootstrap` | First run: `setup`, `up`, backfill and load posts and comments, then `dbt-build` |
 | `make ingest-test DAY=…` | Run the `reddit_ingest` DAG once for one day (extract and load only) |
 | `make dbt-test` | Run the `reddit_dbt` DAG once (source freshness, then dbt build) |
+| `make screenshots` | Capture the README screenshots from the running stack into `docs/images/` |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
+
+## Design decisions
+
+| Decision | Why |
+|---|---|
+| Arctic Shift instead of the Reddit API | The Reddit API stops at about 1,000 items per listing and can't query by date, so it can't provide a 2-year backfill. |
+| RustFS instead of MinIO | MinIO's Docker images can no longer be pulled. RustFS speaks the same S3 API. |
+| ClickHouse reads the bucket with `s3()` | Load becomes a single SQL statement (ELT), with no row handling in Python. |
+| `ReplacingMergeTree` on the raw tables | Reloading a day adds no duplicates; staging reads it with `FINAL`. |
+| Ingestion and dbt in separate, Asset-linked DAGs | Backfills don't force a dbt rebuild per day; dbt runs when both raw tables have new data. |
+| Trends use title-only mentions | Removed posts lose their body, and the removal rate rises from about 11% to 95%, so body text would bias later months downwards. |
+
+More decisions are in the [architecture docs](docs/architecture/README.md#key-decisions).
+
+## Business questions and dashboard metrics
+
+The dashboard is for a data engineering lead planning the team's stack and skills for next year
+([story](docs/dashboard/story.md)).
+
+| Question | Metric on the dashboard | dbt model |
+|---|---|---|
+| How much of the conversation is about AI now? | AI share of post titles and of comments, latest window vs first | `mart_ai_share_change` |
+| Is it a trend or a spike? | AI share by month, titles and comments | `mart_ai_share_by_month` |
+| Are other tools losing ground? | Change in share per tool, in points | `mart_tool_share_change` |
+| Where does AI come up? | AI share of titles per flair, first vs latest window | `mart_ai_share_by_flair_window` |
+| How does a tool I care about compare? | Monthly share of up to four chosen tools | `mart_tool_mentions_by_month`, `mart_comment_tool_mentions_by_month` |
+| Which months are compared? | First and latest six-month windows | `dim_comparison_windows` |
+
+![Full dashboard](docs/images/dashboard-full.png)
+
+## Verification and limitations
+
+As of 2026-10-01 the warehouse holds 28,476 posts and 235,330 comments from 2024-09-25 onwards,
+the daily DAGs are running, and all 64 dbt tests pass.
+
+- **Keyword matching:** tools are matched by keyword ([`tools.csv`](dbt/reddit/seeds/tools.csv)).
+  Spot checks found about 90% precision for ambiguous words like *agent*; known false matches
+  such as *SQL Server Agent* are excluded.
+- **Removed posts:** the removal flag is captured seconds after posting, and later removals are
+  right-censored. See [governance](docs/governance.md#known-data-limitations).
+- **Comment volume** falls after May 2026, when the subreddit started holding most posts for review.
+- **A mention is not an endorsement:** a post can mention a tool to criticise it.
 
 ## Tests and CI
 
@@ -141,6 +222,7 @@ comments and deleted accounts.
 | `tests/` | Unit tests, synthetic fixtures and end-to-end checks |
 | `.github/workflows/` | CI: lint, unit tests and the pipeline end to end |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
+| `docs/images/` | README screenshots, captured by `make screenshots` |
 | `docs/dashboard/story.md` | User, empathy map, GAME and SCQA, designed before the dashboard |
 | `docs/governance.md` | PII, access control, freshness and known data limits |
 
@@ -187,8 +269,7 @@ comments and deleted accounts.
   instead of spot checks.
 - **Re-extract older days** after a few weeks to catch later removals (today they are
   right-censored), and move the facts to **incremental** dbt models.
-- Add **CI** that runs `dbt build` on every change, **alerting** on failed DAG runs, and pin the
-  `latest` image tags.
+- Add **alerting** on failed DAG runs.
 - Keep the hashing salt out of the staging view DDL (for example with a materialised table).
 - Finish the remaining topics: topic modelling (ML), a streaming path with Kafka, and RAG over the
   posts.
