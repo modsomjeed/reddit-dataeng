@@ -13,10 +13,14 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
     AIRFLOW__API_AUTH__JWT_SECRET: local-dev-jwt-secret
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # links in alert emails point at the UI as seen from the host
+    AIRFLOW__API__BASE_URL: http://localhost:${AIRFLOW_PORT:-8082}
     # tasks reach ClickHouse and RustFS over the compose network, not the host ports
     CLICKHOUSE_HOST: clickhouse
     CLICKHOUSE_HTTP_PORT: 8123
     S3_ENDPOINT: http://rustfs:9000
+    ALERT_SMTP_HOST: mailpit
+    ALERT_SMTP_PORT: 1025
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs
@@ -29,6 +33,8 @@ x-airflow-common: &airflow-common
     clickhouse:
       condition: service_healthy
     rustfs:
+      condition: service_healthy
+    mailpit:
       condition: service_healthy
 
 services:
@@ -87,6 +93,18 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+
+  mailpit:
+    # local inbox for failure alerts; point ALERT_SMTP_HOST at a real server to send them for real
+    image: axllent/mailpit:v1.31.3
+    container_name: mailpit
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: postgres:16.15

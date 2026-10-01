@@ -10,9 +10,10 @@ KIND         ?= posts
 # ports and credentials for the URLs printed by `make ps`
 -include .env
 AIRFLOW_PORT ?= 8082
+MAILPIT_PORT ?= 8025
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test screenshots diagrams
+.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test alert-test screenshots diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -22,7 +23,7 @@ setup: ## Create .env from .env.example (never overwrites an existing .env)
 	@if [ -f .env ]; then echo ".env already exists, leaving it alone"; \
 	else cp .env.example .env && echo "created .env — set the passwords and PII_HASH_SALT before 'make up'"; fi
 
-up: ## Build images and start every service (ClickHouse, RustFS, Airflow, dashboard)
+up: ## Build images and start every service (ClickHouse, RustFS, Airflow, dashboard, Mailpit)
 	docker compose up -d --build
 	@$(MAKE) --no-print-directory ps
 
@@ -34,6 +35,7 @@ ps: ## Show service status and URLs
 	@echo "\n  Dashboard       http://localhost:8501"
 	@echo "  Airflow         http://localhost:$(AIRFLOW_PORT)  (airflow / airflow)"
 	@echo "  RustFS console  http://localhost:9001/rustfs/console/"
+	@echo "  Mailpit         http://localhost:$(MAILPIT_PORT)  (failure alerts)"
 
 logs: ## Follow logs, e.g. make logs SERVICE=airflow-scheduler
 	docker compose logs -f $(SERVICE)
@@ -77,9 +79,13 @@ ingest-test: ## Run the reddit_ingest DAG once for DAY (extract + load only), e.
 dbt-test: ## Run the reddit_dbt DAG once (source freshness, then dbt build) inside Airflow
 	docker exec airflow-scheduler airflow dags test reddit_dbt
 
-screenshots: ## Capture README screenshots of the running dashboard, Airflow and RustFS into docs/images/
+alert-test: ## Run the alert_check DAG once; a failure email should appear in Mailpit
+	-docker exec airflow-scheduler airflow dags test alert_check
+	@echo "\nCheck the inbox at http://localhost:$(MAILPIT_PORT)"
+
+screenshots: ## Capture README screenshots of the running dashboard, Airflow, RustFS and Mailpit into docs/images/ (SHOTS=… for a subset)
 	docker run --rm --env-file .env -v "$(CURDIR)":/work -w /work $(PLAYWRIGHT) \
-		bash -c "pip install -q playwright==1.63.0 && python scripts/screenshots.py"
+		bash -c "pip install -q playwright==1.63.0 && python scripts/screenshots.py $(SHOTS)"
 
 diagrams: ## Render every PlantUML diagram to SVG
 	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data $(PLANTUML) -tsvg "/data/*.puml"

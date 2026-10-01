@@ -4,6 +4,8 @@ from datetime import timedelta
 
 from airflow.sdk import Asset
 
+from alerts import notify_failure
+
 PROJECT = "/opt/project"
 DBT = "/opt/airflow/dbt-venv/bin/dbt"
 
@@ -19,4 +21,5 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=1),
     "retry_exponential_backoff": True,
     "max_retry_delay": timedelta(minutes=10),
+    "on_failure_callback": notify_failure,
 }
