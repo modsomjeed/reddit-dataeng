@@ -25,6 +25,9 @@ node "Developer laptop (macOS)" as laptop {
     node "dashboard\n<<container>>" as dash {
       component "Streamlit dashboard\n(ClickHouse user: dashboard, role analyst)" as dashs
     }
+    node "mailpit\n<<container>>" as mail {
+      component "Mailpit 1.31\n(SMTP + inbox UI)" as mails
+    }
     node "airflow-postgres\n<<container>>" as pg {
       database "Postgres 16\n(Airflow metadata)" as pgdb
     }
@@ -55,6 +58,8 @@ scheds --> rfs : "S3 rustfs:9000"
 scheds --> chs : "HTTP clickhouse:8123"
 chs --> rfs : "s3() rustfs:9000"
 scheds --> pgdb : "SQL"
+scheds --> mails : "SMTP mailpit:1025 (failure alerts)"
+browser --> mails : "HTTP 127.0.0.1:8025"
 apis --> pgdb : "SQL"
 dagps --> pgdb : "SQL"
 @enduml

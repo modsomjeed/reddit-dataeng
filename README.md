@@ -23,6 +23,7 @@ Python · Airflow 3 · RustFS (S3) · ClickHouse · dbt · Streamlit · Docker C
 | Airflow | Daily `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG | http://localhost:8082 |
 | dbt | Staging, facts and marts, the `tools` seed and 64 tests | `make dbt-docs` → http://localhost:8081 |
 | Streamlit | Dashboard, reading marts as the read-only `dashboard` user | http://localhost:8501 |
+| Mailpit | Local inbox for failure alerts from Airflow | http://localhost:8025 |
 
 The full design is in the [4+1 View Model](docs/architecture/).
 
@@ -49,9 +50,9 @@ top of storage, and every stage leans on the same undercurrents.
 |---|---|
 | Security | Secrets only in `.env`, services bound to 127.0.0.1, read-only dashboard user |
 | Data management | [Governance](docs/governance.md): pseudonymised usernames, PII tags, dbt docs and lineage, known data limits, raw-bucket backup and restore |
-| DataOps | dbt tests, source freshness gate, retries with backoff, idempotent reloads, raw-bucket backup, and CI that runs the whole pipeline on fixtures |
+| DataOps | dbt tests, source freshness gate, retries with backoff, email alerts on failed tasks, idempotent reloads, raw-bucket backup, and CI that runs the whole pipeline on fixtures |
 | Data architecture | [4+1 View Model](docs/architecture/) and key decisions |
-| Orchestration | Airflow 3: a daily ingest DAG and an Asset-triggered dbt DAG |
+| Orchestration | Airflow 3: a daily ingest DAG, an Asset-triggered dbt DAG, and an `alert_check` DAG that tests the alert path |
 | Software engineering | Conventional Commits, uv projects, Makefile, Docker Compose, pinned image versions, ruff and pytest |
 
 ## Features
@@ -61,6 +62,8 @@ top of storage, and every stage leans on the same undercurrents.
 - **Idempotent ingestion:** every day can be re-extracted and reloaded without duplicates.
 - **Event-driven transformation:** `reddit_dbt` runs when both raw tables have new data, and a
   source freshness check stops it on stale data.
+- **Failure alerts:** a task that still fails after its retries sends an email with the error
+  and a link to its log.
 - **Tested models:** 64 dbt tests, unit tests for the scripts, and CI that runs the whole
   pipeline on synthetic fixtures.
 - **Governed serving:** usernames are pseudonymised and the dashboard can read marts only.
@@ -117,6 +120,7 @@ When the backfill is done, the `reddit-raw` bucket holds one file per day for po
 | What | Where |
 |---|---|
 | Dashboard | http://localhost:8501 |
+| Failure alerts (Mailpit) | http://localhost:8025 |
 | Airflow (airflow / airflow) | http://localhost:8082 (`AIRFLOW_PORT` in `.env`) — unpause `reddit_ingest` (daily at 02:00 UTC) and `reddit_dbt` (runs after each ingest) |
 | RustFS console | http://localhost:9001/rustfs/console/ (RustFS keys from `.env`) |
 | dbt docs and lineage | `make dbt-docs`, then http://localhost:8081 |
@@ -125,6 +129,14 @@ After each ingest run, `reddit_dbt` checks source freshness and then runs `dbt b
 bar is an early failed run; the runs after it passed:
 
 ![Airflow: reddit_dbt DAG](docs/images/airflow-reddit_dbt.png)
+
+If a task still fails after its three retries, Airflow emails the team. Locally the email lands
+in Mailpit; `make alert-test` runs the `alert_check` DAG, which fails on purpose, to check the path:
+
+![Mailpit: failure alert](docs/images/mailpit-alert.png)
+
+To send alerts to a real inbox, point `ALERT_SMTP_HOST`, `ALERT_SMTP_PORT` and `ALERT_EMAIL_TO`
+at your mail server.
 
 `make screenshots` captures these images again from the running stack.
 
@@ -150,7 +162,8 @@ Run `make` (or `make help`) to list them:
 | `make bootstrap` | First run: `setup`, `up`, backfill and load posts and comments, then `dbt-build` |
 | `make ingest-test DAY=…` | Run the `reddit_ingest` DAG once for one day (extract and load only) |
 | `make dbt-test` | Run the `reddit_dbt` DAG once (source freshness, then dbt build) |
-| `make screenshots` | Capture the README screenshots from the running stack into `docs/images/` |
+| `make alert-test` | Run the `alert_check` DAG once; a failure email should appear in Mailpit |
+| `make screenshots [SHOTS=…]` | Capture the README screenshots from the running stack into `docs/images/` |
 | `make diagrams` | Render the PlantUML architecture diagrams to SVG |
 
 ## Design decisions
@@ -198,7 +211,7 @@ the daily DAGs are running, and all 64 dbt tests pass.
 ## Tests and CI
 
     make lint    # ruff
-    make test    # unit tests for the extract, load and backup scripts (no network)
+    make test    # unit tests for the extract, load and backup scripts and the alert email (no network)
 
 [GitHub Actions](.github/workflows/ci.yml) runs two jobs on every push and pull request to `main`:
 
@@ -216,10 +229,10 @@ comments and deleted accounts.
 | Path | What |
 |---|---|
 | `scripts/` | Extract from Arctic Shift to RustFS; load into ClickHouse with `s3()`; ClickHouse init scripts |
-| `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG and the Asset-triggered `reddit_dbt` DAG |
+| `airflow/` | Custom image (Airflow + dbt), the `reddit_ingest` DAG, the Asset-triggered `reddit_dbt` DAG, failure alerts and the `alert_check` DAG |
 | `dbt/reddit/` | Staging, facts and marts for posts and comments (including the dashboard's comparison marts), the `tools` seed, macros and 64 tests |
 | `dashboard/` | Streamlit dashboard for a DE lead, reading the marts as the read-only `dashboard` user |
-| `tests/` | Unit tests, synthetic fixtures and end-to-end checks |
+| `tests/` | Unit tests (including the alert email), synthetic fixtures and end-to-end checks |
 | `.github/workflows/` | CI: lint, unit tests and the pipeline end to end |
 | `docs/architecture/` | 4+1 View Model (PlantUML) |
 | `docs/images/` | README screenshots, captured by `make screenshots` |
@@ -232,7 +245,7 @@ comments and deleted accounts.
 |---|---|
 | Thinking with Data | ✅ questions at four analytics levels; main theme chosen |
 | Data Engineering 101 + Architecture | ✅ source evaluation, data lake + warehouse, ELT, 4+1 views |
-| Data Pipelines with Airflow | ✅ daily DAG, idempotent reloads, backfill, retries, freshness check |
+| Data Pipelines with Airflow | ✅ daily DAG, idempotent reloads, backfill, retries, freshness check, failure alerts |
 | Analytics Engineering with dbt | ✅ staging / mart layers, seed, generic, singular and grain tests, docs |
 | Data Governance | ✅ pseudonymised usernames, read-only analyst role, data limits |
 | Dashboard Design + Data Product | ✅ story-first Streamlit dashboard |
@@ -269,7 +282,6 @@ comments and deleted accounts.
   instead of spot checks.
 - **Re-extract older days** after a few weeks to catch later removals (today they are
   right-censored), and move the facts to **incremental** dbt models.
-- Add **alerting** on failed DAG runs.
 - Keep the hashing salt out of the staging view DDL (for example with a materialised table).
 - Finish the remaining topics: topic modelling (ML), a streaming path with Kafka, and RAG over the
   posts.

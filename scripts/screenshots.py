@@ -6,6 +6,7 @@ Credentials come from the environment (the local .env and the Airflow dev login)
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -64,12 +65,24 @@ def rustfs(page: Page) -> None:
     save(page, "rustfs-console.png")
 
 
+def mailpit(page: Page) -> None:
+    # run `make alert-test` first so the inbox has an alert in it
+    page.goto(f"http://{HOST}:{os.environ.get('MAILPIT_PORT', '8025')}/", wait_until="networkidle")
+    page.locator(".message").first.click()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(2_000)
+    save(page, "mailpit-alert.png")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     OUT.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        for shoot in (dashboard, airflow, rustfs):
+        shots = (dashboard, airflow, rustfs, mailpit)
+        # optional names on the command line pick a subset, e.g. `python scripts/screenshots.py mailpit`
+        wanted = set(sys.argv[1:])
+        for shoot in (s for s in shots if not wanted or s.__name__ in wanted):
             page = browser.new_page(viewport=VIEWPORT, device_scale_factor=1)
             try:
                 shoot(page)
