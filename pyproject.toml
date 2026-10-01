@@ -29,4 +29,4 @@ markers = ["e2e: needs the ClickHouse + RustFS stack with the fixtures loaded (r
 addopts = "-m 'not e2e'"
 
 [tool.ruff.lint.isort]
-known-first-party = ["settings", "extract_reddit", "load_clickhouse", "backup_raw", "reddit_assets", "alerts"]
+known-first-party = ["settings", "extract_reddit", "load_clickhouse", "backup_raw", "reddit_assets", "alerts", "send_digest"]

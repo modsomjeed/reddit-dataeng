@@ -38,8 +38,8 @@ def test_failure_message_names_the_task_and_the_error(monkeypatch):
 
 
 def test_notify_failure_sends_through_the_configured_server(monkeypatch):
-    monkeypatch.setenv("ALERT_SMTP_HOST", "smtp.test")
-    monkeypatch.setenv("ALERT_SMTP_PORT", "2525")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test")
+    monkeypatch.setenv("SMTP_PORT", "2525")
     monkeypatch.setattr(alerts.smtplib, "SMTP", FakeSMTP)
     FakeSMTP.sent.clear()
 

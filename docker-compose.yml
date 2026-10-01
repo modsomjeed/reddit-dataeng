@@ -19,8 +19,8 @@ x-airflow-common: &airflow-common
     CLICKHOUSE_HOST: clickhouse
     CLICKHOUSE_HTTP_PORT: 8123
     S3_ENDPOINT: http://rustfs:9000
-    ALERT_SMTP_HOST: mailpit
-    ALERT_SMTP_PORT: 1025
+    SMTP_HOST: mailpit
+    SMTP_PORT: 1025
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs
@@ -95,7 +95,7 @@ services:
         condition: service_healthy
 
   mailpit:
-    # local inbox for failure alerts; point ALERT_SMTP_HOST at a real server to send them for real
+    # local inbox for failure alerts and the weekly digest; point SMTP_HOST at a real server to send them for real
     image: axllent/mailpit:v1.31.3
     container_name: mailpit
     ports:

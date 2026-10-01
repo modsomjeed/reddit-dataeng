@@ -32,8 +32,8 @@ def failure_message(context: dict) -> EmailMessage:
 def notify_failure(context: dict) -> None:
     # on_failure_callback runs only after the last retry, so each failure sends one email
     msg = failure_message(context)
-    host = os.environ.get("ALERT_SMTP_HOST", "mailpit")
-    port = int(os.environ.get("ALERT_SMTP_PORT", "1025"))
+    host = os.environ.get("SMTP_HOST", "mailpit")
+    port = int(os.environ.get("SMTP_PORT", "1025"))
     try:
         with smtplib.SMTP(host, port, timeout=10) as smtp:
             smtp.send_message(msg)

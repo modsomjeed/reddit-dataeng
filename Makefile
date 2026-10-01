@@ -13,7 +13,7 @@ AIRFLOW_PORT ?= 8082
 MAILPIT_PORT ?= 8025
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test alert-test screenshots diagrams
+.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test alert-test digest-test screenshots diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -81,6 +81,10 @@ dbt-test: ## Run the reddit_dbt DAG once (source freshness, then dbt build) insi
 
 alert-test: ## Run the alert_check DAG once; a failure email should appear in Mailpit
 	-docker exec airflow-scheduler airflow dags test alert_check
+	@echo "\nCheck the inbox at http://localhost:$(MAILPIT_PORT)"
+
+digest-test: ## Run the reddit_digest DAG once (reverse ETL); the digest email should appear in Mailpit
+	docker exec airflow-scheduler airflow dags test reddit_digest
 	@echo "\nCheck the inbox at http://localhost:$(MAILPIT_PORT)"
 
 screenshots: ## Capture README screenshots of the running dashboard, Airflow, RustFS and Mailpit into docs/images/ (SHOTS=… for a subset)
