@@ -117,6 +117,44 @@ package "reddit_analytics — mart  (SELECT granted to analyst)" {
   }
 }
 
+package "reddit_analytics — mart: what the dashboard reads" {
+  entity "dim_comparison_windows" as win {
+    * month
+    --
+    period ('first' | 'last')
+    ..
+    first / last N complete months
+    (var comparison_window_months)
+  }
+  entity "mart_ai_share_by_month" as aim {
+    * month
+    * measure (titles | comments)
+    --
+    mentions_ai, total, share_pct
+  }
+  entity "mart_ai_share_change" as aic {
+    * measure
+    --
+    first_share_pct, last_share_pct
+    change_pts, growth_ratio
+  }
+  entity "mart_tool_share_change" as tsc {
+    * tool
+    * measure
+    --
+    category, is_ai
+    first_share_pct, last_share_pct
+    change_pts
+  }
+  entity "mart_ai_share_by_flair_window" as afw {
+    * flair
+    * period
+    --
+    posts, ai_posts_in_title
+    ai_title_share_pct
+  }
+}
+
 raw ||..|| stg : "FINAL, rename, clean"
 stg ||--o{ fptm : "post_id"
 tools ||--o{ fptm : "tool"
@@ -130,4 +168,14 @@ stg ||--o{ stgc : "post_id"
 stgc ||--o{ fctm : "comment_id"
 tools ||--o{ fctm : "tool"
 fctm }o..|| mctm : "aggregated by month"
+stg ..> win : "months in the data"
+fp ..> aim : "titles"
+fctm ..> aim : "comments"
+aim ..> aic
+win ..> aic : "periods"
+mtm ..> tsc
+mctm ..> tsc
+win ..> tsc
+mai ..> afw
+win ..> afw
 @enduml

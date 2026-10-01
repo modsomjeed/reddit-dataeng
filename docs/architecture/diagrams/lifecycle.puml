@@ -30,7 +30,7 @@ rectangle "**Generation**\n\nReddit r/dataengineering\nvia the Arctic Shift arch
 
 rectangle "Lifecycle (this repo)" <<frame>> as life {
   rectangle "**Ingestion**\n\nextract_reddit.py\nload_clickhouse.py\nAirflow: reddit_ingest" as ing
-  rectangle "**Transformation**\n\ndbt: staging → facts → marts\n45 tests\nAirflow: reddit_dbt" as trans
+  rectangle "**Transformation**\n\ndbt: staging → facts → marts\n64 tests\nAirflow: reddit_dbt" as trans
   rectangle "**Serving**\n\nmarts granted to the\nanalyst role\n(read-only dashboard user)" as serve
   rectangle "**Storage**\n\nRustFS data lake: raw JSON, one file per day\nClickHouse warehouse: raw → staging → marts" <<light>> as store
 }
