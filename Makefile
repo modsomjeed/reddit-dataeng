@@ -1,5 +1,6 @@
 DIAGRAMS_DIR := docs/architecture/diagrams
 PLANTUML     := plantuml/plantuml:1.2026.8
+PLAYWRIGHT   := mcr.microsoft.com/playwright/python:v1.63.0-noble
 DBT_DIR      := dbt/reddit
 DBT          := cd $(DBT_DIR) && uv run --env-file ../../.env dbt
 START        ?= 2024-09-25
@@ -11,7 +12,7 @@ KIND         ?= posts
 AIRFLOW_PORT ?= 8082
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test diagrams
+.PHONY: help setup up down ps logs backfill load backup-raw restore-raw lint test dbt-build dbt-docs bootstrap ingest-test dbt-test screenshots diagrams
 
 help: ## Show every command and what it does
 	@echo "Usage: make <command> [VAR=value]\n"
@@ -75,6 +76,10 @@ ingest-test: ## Run the reddit_ingest DAG once for DAY (extract + load only), e.
 
 dbt-test: ## Run the reddit_dbt DAG once (source freshness, then dbt build) inside Airflow
 	docker exec airflow-scheduler airflow dags test reddit_dbt
+
+screenshots: ## Capture README screenshots of the running dashboard, Airflow and RustFS into docs/images/
+	docker run --rm --env-file .env -v "$(CURDIR)":/work -w /work $(PLAYWRIGHT) \
+		bash -c "pip install -q playwright==1.63.0 && python scripts/screenshots.py"
 
 diagrams: ## Render every PlantUML diagram to SVG
 	docker run --rm -v "$(CURDIR)/$(DIAGRAMS_DIR)":/data $(PLANTUML) -tsvg "/data/*.puml"
