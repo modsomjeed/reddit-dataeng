@@ -91,7 +91,8 @@ jobs:
       - name: Build and test the dbt models
         working-directory: dbt/reddit
         # the fixtures span four months, so compare one complete month against another
-        run: uv run dbt build --profiles-dir . --vars '{comparison_window_months: 1}'
+        run: |
+          uv run dbt build --profiles-dir . --vars '{comparison_window_months: 1}'
 
       - name: Check the marts built from the fixtures
         run: uv run pytest -m e2e
